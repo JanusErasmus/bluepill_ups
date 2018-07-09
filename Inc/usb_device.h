@@ -64,6 +64,9 @@ extern USBD_HandleTypeDef hUsbDeviceFS;
 void MX_USB_DEVICE_Init(void);
 void MX_USB_DEVICE_DeInit(void);
 
+int MX_USB_DEVICE_ready();
+int MX_USB_DEVICE_transmit(uint8_t *data, int len);
+
 #ifdef __cplusplus
 }
 #endif

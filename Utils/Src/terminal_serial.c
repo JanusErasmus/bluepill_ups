@@ -207,6 +207,19 @@ void terminal_serial_handleByte(uint8_t byte)
 	terminal_handleByte(byte);
 }
 
+int terminal_serial_ready()
+{
+	return vcomOK;
+}
+
+int terminal_serial_transmit(uint8_t *buf, int len)
+{
+	if(HAL_UART_Transmit(&UartHandle, buf, len, 300)  != HAL_OK)
+		return -1;
+
+	return len;
+}
+
 void terminal_serial_IoInit(void)
 {
   GPIO_InitTypeDef  GPIO_InitStruct={0};

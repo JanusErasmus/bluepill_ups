@@ -144,6 +144,9 @@ void terminal_serial_IoInit(void);
 */
 void terminal_serial_IoDeInit(void);
 
+int terminal_serial_ready();
+int terminal_serial_transmit(uint8_t *buf, int len);
+
 void terminal_serial_handleByte(uint8_t byte);
 uint8_t terminal_serial_run();
 void terminal_serial_sleep();

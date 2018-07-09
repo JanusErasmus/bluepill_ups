@@ -110,6 +110,22 @@ void MX_USB_DEVICE_DeInit(void)
 {
   USBD_DeInit(&hUsbDeviceFS);
 }
+
+int MX_USB_DEVICE_ready()
+{
+	return USBD_usbOK;
+}
+
+int MX_USB_DEVICE_transmit(uint8_t *data, int len)
+{
+	if(USBD_usbOK)
+	{
+		if(CDC_Transmit_FS((uint8_t *)data, len) != USBD_OK)
+			return -1;
+	}
+
+	return len;
+}
 /**
   * @}
   */

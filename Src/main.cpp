@@ -69,12 +69,6 @@ static void MX_RTC_Init(void);
 
 /* Private function prototypes -----------------------------------------------*/
 
-extern "C" {
-#include "usbd_cdc_if.h"
-
-extern UART_HandleTypeDef UartHandle;
-}
-
 int main(void)
 {
   /* MCU Configuration----------------------------------------------------------*/
@@ -87,11 +81,28 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
 
-  terminal_serial_Init();
-
   HAL_Delay(1000);
   MX_RTC_Init();
   MX_USB_DEVICE_Init();
+  sTerminalInterface_t usb = {
+		  MX_USB_DEVICE_ready,
+		  MX_USB_DEVICE_transmit
+    };
+
+  terminal_serial_Init();
+  sTerminalInterface_t serial = {
+		  terminal_serial_ready,
+		  terminal_serial_transmit
+  };
+
+  sTerminalInterface_t *interfaces[] = {
+		  &serial,
+		  &usb,
+		  0
+  };
+
+  terminal_init((sTerminalInterface_t **)&interfaces);
+
 
   /* Infinite loop */
   while (1)
@@ -207,35 +218,6 @@ static void MX_RTC_Init(void)
 
 }
 
-extern "C" {
-#include "usbd_cdc_if.h"
-
-extern uint8_t USBD_usbOK;
-extern uint8_t vcomOK;
-int _write(int file, char *data, int len)
-{
-   if(vcomOK)
-   {
-	   if(HAL_UART_Transmit(&UartHandle,(uint8_t *)data, len, 300)  != HAL_OK)
-		   return -1;
-
-	   if(data[len -1] == '\n')
-	   {
-		   uint8_t CR = '\r';
-
-		   if(HAL_UART_Transmit(&UartHandle, &CR, 1, 300)  != HAL_OK)
-			   return -1;
-	   }
-   }
-
-   if(USBD_usbOK)
-   {
-	   CDC_Transmit_FS((uint8_t *)data, len);
-   }
-
-   return len;
-}
-}
 /** Configure pins as 
         * Analog 
         * Input 
