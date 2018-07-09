@@ -54,6 +54,7 @@
 #include "stm32f1xx_hal.h"
 
 #include "Utils/terminal.h"
+#include "Utils/utils.h"
 #include "usb_device.h"
 
 
@@ -82,7 +83,7 @@ int main(void)
   MX_GPIO_Init();
 
   HAL_Delay(1000);
-  MX_RTC_Init();
+
   MX_USB_DEVICE_Init();
   sTerminalInterface_t usb = {
 		  MX_USB_DEVICE_ready,
@@ -103,6 +104,7 @@ int main(void)
 
   terminal_init((sTerminalInterface_t **)&interfaces);
 
+  MX_RTC_Init();
 
   /* Infinite loop */
   while (1)
@@ -177,9 +179,8 @@ void SystemClock_Config(void)
 /* RTC init function */
 static void MX_RTC_Init(void)
 {
-
   RTC_TimeTypeDef sTime;
-  RTC_DateTypeDef DateToUpdate;
+  RTC_DateTypeDef sDate;
 
     /**Initialize RTC Only 
     */
@@ -193,27 +194,39 @@ static void MX_RTC_Init(void)
 
     /**Initialize RTC and set the Time and Date 
     */
-  if(HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) != 0x32F2){
-  sTime.Hours = 0x1;
-  sTime.Minutes = 0x0;
-  sTime.Seconds = 0x0;
-
-  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  if(HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) == 0x32F2)
   {
-    _Error_Handler(__FILE__, __LINE__);
+	  printf(GREEN("RTC: "));
+
+	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+	  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+	  printf("RTC date:\n");
+	  printf(" - %04d-%02d-%02d ", 2000 + sDate.Year, sDate.Month, sDate.Date);
+	  printf("%02d:%02d:%02d\n", sTime.Hours, sTime.Minutes, sTime.Seconds);
   }
-
-  DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
-  DateToUpdate.Month = RTC_MONTH_JANUARY;
-  DateToUpdate.Date = 0x1;
-  DateToUpdate.Year = 0x0;
-
-  if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
+  else
   {
-    _Error_Handler(__FILE__, __LINE__);
-  }
+	  printf(RED("RTC: Not set\n"));
+	  sTime.Hours = 0;
+	  sTime.Minutes = 0;
+	  sTime.Seconds = 0;
 
-    HAL_RTCEx_BKUPWrite(&hrtc,RTC_BKP_DR1,0x32F2);
+	  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
+	  {
+		  _Error_Handler(__FILE__, __LINE__);
+	  }
+
+	  sDate.WeekDay = RTC_WEEKDAY_MONDAY;
+	  sDate.Year = 0;
+	  sDate.Month = RTC_MONTH_JANUARY;
+	  sDate.Date = 0;
+
+	  if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
+	  {
+		  _Error_Handler(__FILE__, __LINE__);
+	  }
+
+	  HAL_RTCEx_BKUPWrite(&hrtc,RTC_BKP_DR1,0x32F2);
   }
 
 }
@@ -247,6 +260,37 @@ static void MX_GPIO_Init(void)
 
 }
 
+extern "C" {
+
+void rtc_debug(uint8_t argc, char **argv)
+{
+	RTC_TimeTypeDef sTime;
+	RTC_DateTypeDef sDate;
+
+	if(argc > 5)
+	{
+		printf("Setting date %d\n", atoi(argv[5]));
+
+		sDate.WeekDay = RTC_WEEKDAY_MONDAY;
+		sDate.Year = atoi(argv[1]) - 2000;
+		sDate.Month = atoi(argv[2]);
+		sDate.Date = atoi(argv[3]);
+		sTime.Hours = atoi(argv[4]);
+		sTime.Minutes = atoi(argv[5]);
+		sTime.Seconds = 0;
+
+		HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+		HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+	}
+
+	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+	HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+	printf("RTC date:\n");
+	printf(" - %04d-%02d-%02d ", 2000 +sDate.Year, sDate.Month, sDate.Date);
+	printf("%02d:%02d:%02d\n", sTime.Hours, sTime.Minutes, sTime.Seconds);
+}
+
+}
 /**
   * @brief  This function is executed in case of error occurrence.
   * @param  None
@@ -283,3 +327,4 @@ void assert_failed(uint8_t* file, uint32_t line)
 */ 
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+

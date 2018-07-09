@@ -20,7 +20,7 @@ static uint8_t parseCommand(char *command, uint8_t argc, char **argv)
     argv[count] = command;
     char *ptr = strchr(argv[count], ' ');
 
-    while (ptr && (count++ < argc))
+    while (ptr && (count++ <= argc))
     {
         ptr[0] = 0;
         ptr++;
@@ -53,10 +53,10 @@ void cli_handleCommand(char *cmd)
     strip_whiteSpaces(cmd);
 
     uint8_t processed = 0;
-    char* argv[5];
+    char* argv[6];
     uint8_t argc = 0;
     uint8_t cmdIndex = 0;
-    argc = parseCommand(cmd, 5, argv);
+    argc = parseCommand(cmd, 6, argv);
     if (argc)
     {
         const sTermEntry_t *entry = cli_entries[cmdIndex++];
