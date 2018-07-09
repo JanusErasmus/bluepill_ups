@@ -34,7 +34,8 @@
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx.h"
 #include "stm32f1xx_it.h"
-#include "vcom.h"
+
+#include "Utils/terminal_serial.h"
 
 /* External variables --------------------------------------------------------*/
 extern PCD_HandleTypeDef hpcd_USB_FS;
@@ -134,7 +135,7 @@ void VCOM_USART_IRQHandler(void)
     {
         uint8_t c = USART1->DR;
 
-        vcom_handleByte(c);
+        terminal_serial_handleByte(c);
     }
 }
 

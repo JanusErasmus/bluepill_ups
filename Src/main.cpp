@@ -48,10 +48,13 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
+#include "Utils/cli.h"
+#include "Utils/terminal_serial.h"
 #include "stm32f1xx_hal.h"
+
+#include "Utils/terminal.h"
 #include "usb_device.h"
-#include "terminal.h"
-#include "vcom.h"
 
 
 /* Private variables ---------------------------------------------------------*/
@@ -83,17 +86,17 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  vcom_Init(terminal_handleCommand);
+
+  terminal_serial_Init();
+
   HAL_Delay(1000);
   MX_RTC_Init();
   MX_USB_DEVICE_Init();
 
-  vcom_Start(VCOM_DEBUG);
-
   /* Infinite loop */
   while (1)
   {
-      vcom_run();
+	  terminal_run();
 
       HAL_Delay(100);
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);

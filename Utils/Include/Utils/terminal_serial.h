@@ -58,8 +58,8 @@ Maintainer: Miguel Luis and Gregory Cristian
   ******************************************************************************
   */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __VCOM_H__
-#define __VCOM_H__
+#ifndef __TERMINAL_SERIAL_H__
+#define __TERMINAL_SERIAL_H__
 
 #ifdef __cplusplus
  extern "C" {
@@ -69,8 +69,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 #include <stdio.h>
 #include <stdint.h>
 
-#include "terminal_if.h"
-/* Exported types ------------------------------------------------------------*/
+ /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* External variables --------------------------------------------------------*/
 
@@ -108,77 +107,52 @@ void _Error_Handler(const char *, int);
 * @param  Callback for the handle command
 * @return None
 */
-void vcom_Init(void (*cmdCallback)(sTerminalInterface_t *termIf, char *cmd));
+void terminal_serial_Init(void);
 
-/**
-* @brief  Start the VCOM.
-* @param  Vcom state from eVcomStates_t
-* @return None
-*/
-void vcom_Start(eVcomStates_t state);
+///**
+//* @brief  Start the VCOM.
+//* @param  Vcom state from eVcomStates_t
+//* @return None
+//*/
+//void terminal_serial_Start(eVcomStates_t state);
 
 /**
 * @brief  Disable the RX interrupt.
 * @param  None
 * @return None
 */
-void vcom_DisableRx(void);
+void terminal_serial_DisableRx(void);
 
 /**
 * @brief  DeInit the VCOM.
 * @param  None
 * @return None
 */
-void vcom_DeInit(void);
+void terminal_serial_DeInit(void);
 
    /** 
 * @brief  Init the VCOM IOs.
 * @param  None
 * @return None
 */
-void vcom_IoInit(void);
+void terminal_serial_IoInit(void);
   
    /** 
 * @brief  DeInit the VCOM IOs.
 * @param  None
 * @return None
 */
-void vcom_IoDeInit(void);
+void terminal_serial_IoDeInit(void);
 
-void vcom_handleByte(uint8_t byte);
-uint8_t vcom_run();
-void vcom_sleep();
-sTerminalInterface_t *vcom_getInterface();
+void terminal_serial_handleByte(uint8_t byte);
+uint8_t terminal_serial_run();
+void terminal_serial_sleep();
 
 void diag_dump_buf(void *p, uint32_t s);
 
 #define PRINTF printf
 
-#define printBuff(_c)  printf(#_c " : 0x%08X\n", (unsigned int)READ_REG(_c));
-
-#ifndef VT100_OFF
-#define COLOR(__c,__x)    "\x1b[3" #__c "m" __x "\x1b[0m"
-#define COLOR_BOLD(__c,__x)    "\x1b[3" #__c ";1m" __x "\x1b[0m"
-#define UNDERLINE(__x) "\x1b[4m" __x "\x1b[0m"
-#define CLEAR_SCREEN    "\x1b[2J\x1b[H"
-#else
-#define COLOR(__c,__x)    __x
-#define COLOR_BOLD(__c,__x) __x
-#define UNDERLINE(__x) __x
-#define CLEAR_SCREEN
-#endif
-#define RED(__x)        COLOR(1, __x )
-#define GREEN(__x)        COLOR(2, __x )
-#define YELLOW(__x)        COLOR(3, __x )
-#define BLUE(__x)        COLOR(4, __x )
-#define MAGENTA(__x)    COLOR(5, __x )
-#define CYAN(__x)        COLOR(6, __x )
-#define RED_B(__x)        COLOR_BOLD(1, __x )
-#define GREEN_B(__x)        COLOR_BOLD(2, __x )
-#define YELLOW_B(__x)        COLOR_BOLD(3, __x )
-#define BLUE_B(__x)        COLOR_BOLD(4, __x )
-#define MAGENTA_B(__x)    COLOR_BOLD(5, __x )
-#define CYAN_B(__x)        COLOR_BOLD(6, __x )
+#define printReg(_c)  printf(#_c " : 0x%08X\n", (unsigned int)READ_REG(_c));
 
 #ifdef __cplusplus
 }

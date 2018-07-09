@@ -6,7 +6,7 @@ extern "C"
 {
 #endif
 
-extern const sTermEntry_t *term_entries[];
+extern const sTermEntry_t *cli_entries[];
 
 #ifdef __cplusplus
 }

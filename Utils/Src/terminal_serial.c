@@ -43,28 +43,16 @@
   *
   ******************************************************************************
   */
-  
-#include "vcom.h"
-
-#include "stm32f1xx_hal.h"
-
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 
-#define CMD_BUFFER_SIZE     128
-#define VCOM_DELAY   		2*1000 //mS
+#include "stm32f1xx_hal.h"
 
-static char mCmdBuffer[CMD_BUFFER_SIZE];
-static uint8_t mCmdIndex = 0;
-
-static eVcomStates_t mVcomState = VCOM_OFF;
-static bool mTimingOut = false;
-static bool mActive = false;
-static char *mCommand;
-static void (*mCmdCallback)(sTerminalInterface_t *termIf, char *cmd) = 0;
-
+#include "Utils/terminal_serial.h"
+#include "Utils/terminal.h"
+#include "Utils/utils.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -91,11 +79,10 @@ void _Error_Handler(const char * file, int line)
 UART_HandleTypeDef UartHandle;
 volatile uint8_t vcomOK = 0;
 
-static sTerminalInterface_t mVcomInterface;
 /* Private function prototypes -----------------------------------------------*/
 /* Functions Definition ------------------------------------------------------*/
 
-void vcom_write(const char *format, ...)
+void terminal_serial_write(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -105,22 +92,8 @@ void vcom_write(const char *format, ...)
 	va_end(args);
 }
 
-void vcom_sleep()
+void terminal_serial_Init(void)
 {
-    mVcomInterface.printf(YELLOW("Terminal going sleep.\n"));
-    vcom_DisableRx();
-    mActive = false;
-}
-
-sTerminalInterface_t *vcom_getInterface()
-{
-    return &mVcomInterface;
-}
-
-void vcom_Init(void (*cmdCallback)(sTerminalInterface_t *termIf, char *cmd))
-{
-	mCmdCallback = cmdCallback;
-
     // if the com is already initialized return
     if(!vcomOK)
     {
@@ -156,51 +129,48 @@ void vcom_Init(void (*cmdCallback)(sTerminalInterface_t *termIf, char *cmd))
         /* This allows printf to work without \n */
         setbuf(stdout, 0);
 
-        mVcomInterface.printf = vcom_write;
-        mVcomInterface.sleep = vcom_sleep;
-
         vcomOK = 1;
     }
 }
 
-void vcom_Start(eVcomStates_t state)
-{
-   mVcomState = state;
+//void terminal_serial_Start(eVcomStates_t state)
+//{
+//   mVcomState = state;
+//
+//   switch (state)
+//   {
+//      case VCOM_NORMAL:
+//      {
+//         mActive = true;
+//         mTimingOut = true;
+//         printf("VCOM started\n");
+//         printf(GREEN("Press enter to enable Terminal..\n"));
+//      }
+//      break;
+//      case VCOM_DEBUG:
+//      {
+//         mActive = true;
+//         mTimingOut = false;
+//         printf("VCOM started\n");
+//         printf(GREEN("Type s to sleep terminal.\n"));
+//      }
+//      break;
+//      case VCOM_OFF:
+//      {
+//         mActive = false;
+//         printf(RED("VCOM disabled.\n"));
+//      }
+//      break;
+//   }
+//}
 
-   switch (state)
-   {
-      case VCOM_NORMAL:
-      {
-         mActive = true;
-         mTimingOut = true;
-         mVcomInterface.printf("VCOM started\n");
-         mVcomInterface.printf(GREEN("Press enter to enable Terminal..\n"));
-      }
-      break;
-      case VCOM_DEBUG:
-      {
-         mActive = true;
-         mTimingOut = false;
-         mVcomInterface.printf("VCOM started\n");
-         mVcomInterface.printf(GREEN("Type s to sleep terminal.\n"));
-      }
-      break;
-      case VCOM_OFF:
-      {
-         mActive = false;
-         mVcomInterface.printf(RED("VCOM disabled.\n"));
-      }
-      break;
-   }
-}
-
-void vcom_DisableRx(void)
+void terminal_serial_DisableRx(void)
 {
     /* Clear the interrupt enable */
     VCOM_USART->CR1 &= ~USART_CR1_RXNEIE;
 }
 
-void vcom_DeInit(void)
+void terminal_serial_DeInit(void)
 {
    vcomOK = 0;
 
@@ -228,10 +198,16 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
   VCOM_USART_CLK_ENABLE();
   
   /*##-2- Configure peripheral GPIO ##########################################*/  
-  vcom_IoInit( );
+  terminal_serial_IoInit( );
 }
 
-void vcom_IoInit(void)
+
+void terminal_serial_handleByte(uint8_t byte)
+{
+	terminal_handleByte(byte);
+}
+
+void terminal_serial_IoInit(void)
 {
   GPIO_InitTypeDef  GPIO_InitStruct={0};
     /* Enable GPIO TX/RX clock */
@@ -252,7 +228,7 @@ void vcom_IoInit(void)
   HAL_GPIO_Init(VCOM_USART_RX_GPIO_PORT, &GPIO_InitStruct);
 }
 
-void vcom_IoDeInit(void)
+void terminal_serial_IoDeInit(void)
 {
    GPIO_InitTypeDef GPIO_InitStructure={0};
 
@@ -271,70 +247,6 @@ void vcom_IoDeInit(void)
    VCOM_USART_CLK_DISABLE();
 }
 
-uint8_t vcom_run()
-{
-    if (!mActive)
-        return 0;
-
-    //auto term off
-    if(mTimingOut)
-    {
-    	static uint32_t timeOff = 0;
-    	if(!timeOff)
-    		timeOff = (HAL_GetTick() + VCOM_DELAY);
-
-    	if(HAL_GetTick() > timeOff)
-    	{
-    		vcom_sleep();
-    		return 0;
-    	}
-    }
-
-    if (mCommand)
-    {
-    	if(mTimingOut)
-    		mTimingOut = false;
-
-        if(mCmdCallback)
-            mCmdCallback(&mVcomInterface, mCommand);
-
-    	free(mCommand);
-    	mCommand = 0;
-    }
-
-    return 1;
-}
-
-void vcom_handleByte(uint8_t byte)
-{
-	if(!mActive)
-        return;
-
-    //echo typed character
-	printf("%c", (char)byte);
-    if (byte == '\r')
-    {
-    	printf("%c", '\n');
-    }
-
-    if (byte == '\r') // || (byte == '\n'))
-    {
-        mCmdBuffer[mCmdIndex++] = byte;
-        mCmdBuffer[mCmdIndex++] = 0;
-        if(mCommand)
-        	return;
-        mCommand = (char *)malloc(mCmdIndex);
-        memcpy(mCommand, mCmdBuffer, mCmdIndex);
-
-        mCmdIndex = 0;
-    }
-    else
-        mCmdBuffer[mCmdIndex++] = byte;
-
-    if (mCmdIndex > CMD_BUFFER_SIZE)
-        mCmdIndex = 0;
-}
-
 
 /**
   * @brief UART MSP DeInit
@@ -343,7 +255,7 @@ void vcom_handleByte(uint8_t byte)
   */
 void HAL_UART_MspDeInit(UART_HandleTypeDef *huart)
 {
-  vcom_IoDeInit( );
+  terminal_serial_IoDeInit( );
 }
 
 //int putch(int ch, FILE *f) {

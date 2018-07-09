@@ -1,18 +1,19 @@
+#include "Utils/cli.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "terminal.h"
-#include "vcom.h"
-#include "commands.h"
+#include "Utils/utils.h"
+#include "Utils/commands.h"
 
 extern void WWDG_Refresh();
 
 /*!
  * Private functions
  */
-uint8_t parseCommand(char *command, uint8_t argc, char **argv)
+static uint8_t parseCommand(char *command, uint8_t argc, char **argv)
 {
     uint8_t count = 0;
     argc -= 2;
@@ -47,7 +48,7 @@ void strip_whiteSpaces(char *cmd)
     }
 }
 
-void terminal_handleCommand(sTerminalInterface_t *termIf, char *cmd)
+void cli_handleCommand(char *cmd)
 {
     strip_whiteSpaces(cmd);
 
@@ -58,41 +59,41 @@ void terminal_handleCommand(sTerminalInterface_t *termIf, char *cmd)
     argc = parseCommand(cmd, 5, argv);
     if (argc)
     {
-        const sTermEntry_t *entry = term_entries[cmdIndex++];
+        const sTermEntry_t *entry = cli_entries[cmdIndex++];
         while (entry)
         {
             if (!strcmp(entry->cmd, cmd))
             {
-                entry->cmdFunc(termIf, argc, argv);
+                entry->cmdFunc(argc, argv);
                 processed = 1;
                 break;
             }
-            entry = term_entries[cmdIndex++];
+            entry = cli_entries[cmdIndex++];
         }
     }
 
     if (!processed && (strlen(cmd) > 0))
     {
-        termIf->printf(RED("Unknown command '%s', try help\n"), cmd);
+        printf(RED("Unknown command '%s', try help\n"), cmd);
     }
 
-    termIf->printf("BluePill $ ");
+    printf("BluePill $ ");
 }
 
 /*!
  * Debug entries
  */
 
-void help(sTerminalInterface_t *termIf, uint8_t argc, char **argv)
+void help(uint8_t argc, char **argv)
 {
     uint8_t cmdIndex = 0;
-    const sTermEntry_t *entry = term_entries[cmdIndex++];
+    const sTermEntry_t *entry = cli_entries[cmdIndex++];
 
-    termIf->printf(YELLOW("Available commands:\n"));
+    printf(YELLOW("Available commands:\n"));
     while (entry)
     {
-    	termIf->printf("%s\t- %s\n", entry->cmd, entry->description);
-        entry = term_entries[cmdIndex++];
+    	printf("%s\t- %s\n", entry->cmd, entry->description);
+        entry = cli_entries[cmdIndex++];
     }
 }
 const sTermEntry_t hEntry =
@@ -101,9 +102,9 @@ const sTermEntry_t hEntry =
 const sTermEntry_t helpEntry =
 { "help", "This help", help };
 
-void reboot(sTerminalInterface_t *termIf, uint8_t argc, char **argv)
+void reboot(uint8_t argc, char **argv)
 {
-	termIf->printf("Rebooting...\n");
+	printf("Rebooting...\n");
     NVIC_SystemReset();
 }
 
@@ -113,9 +114,9 @@ const sTermEntry_t rebootEntry =
 
 #include "usb_device.h"
 
-void jumpBoot(sTerminalInterface_t *termIf, uint8_t argc, char **argv)
+void jumpBoot(uint8_t argc, char **argv)
 {
-    termIf->printf("Boot mode...\n");
+    printf("Boot mode...\n");
 
     MX_USB_DEVICE_DeInit();
 //    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_11 | GPIO_PIN_12);
@@ -130,7 +131,7 @@ void jumpBoot(sTerminalInterface_t *termIf, uint8_t argc, char **argv)
     HAL_Delay(1000);
 
 
-    termIf->printf("Bye\n");
+    printf("Bye\n");
     __HAL_RCC_USART1_FORCE_RESET();
     HAL_Delay(5);
     __HAL_RCC_USART1_RELEASE_RESET();
@@ -160,28 +161,26 @@ void jumpBoot(sTerminalInterface_t *termIf, uint8_t argc, char **argv)
 const sTermEntry_t bootEntry =
 { "boot", "Jump to bootloader", jumpBoot };
 
-void sleep(sTerminalInterface_t *termIf, uint8_t argc, char **argv)
-{
-    termIf->sleep();
-}
-
-const sTermEntry_t sleepEntry =
-{ "s", "Sleep the terminal", sleep };
+//void sleep(uint8_t argc, char **argv)
+//{
+//	vcom_sleep();
+//}
+//
+//const sTermEntry_t sleepEntry =
+//{ "s", "Sleep the terminal", sleep };
 
 /*!
  * Public functions
  */
 
 char *currentCommand = 0;
-sTerminalInterface_t *currentInterface;
 
-HAL_StatusTypeDef terminal_setCommand( sTerminalInterface_t *termIf, char *cmd)
+HAL_StatusTypeDef cli_setCommand(char *cmd)
 {
 	if(currentCommand)
 		return HAL_ERROR;
 
 	currentCommand = cmd;
-	currentInterface = termIf;
 	return HAL_OK;
 }
 

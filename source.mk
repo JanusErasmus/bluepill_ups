@@ -23,7 +23,7 @@ BUILD_DIR = build
 # C sources
 C_SOURCES =  \
 $(wildcard Src/*.c) \
-$(wildcard Utils/src/*.c) \
+$(wildcard Utils/Src/*.c) \
 Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.c \
 Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.c \
 Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c \
@@ -46,14 +46,6 @@ Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_pcd_ex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_cortex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio_ex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c
-#Src/usb_device.c \
-#Src/main.c \
-#Src/usbd_cdc_if.c \
-#Src/usbd_conf.c \
-#Src/stm32f1xx_hal_msp.c \
-#Src/system_stm32f1xx.c \
-#Src/usbd_desc.c \
-#Src/stm32f1xx_it.c \
 
 # C++ sources
 CXX_SOURCES =  \
@@ -71,7 +63,7 @@ C_DEFS =  \
 # C includes
 C_INCLUDES =  \
 -IInc \
--IUtils/inc \
+-IUtils/Include \
 -IDrivers/STM32F1xx_HAL_Driver/Inc \
 -IDrivers/STM32F1xx_HAL_Driver/Inc/Legacy \
 -IMiddlewares/ST/STM32_USB_Device_Library/Core/Inc \
