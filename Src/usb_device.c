@@ -62,23 +62,23 @@ uint8_t USBD_usbOK = 0;
 
 void stateChanged(uint8_t state)
 {
-	printf("USBD: State changed %d -", state);
+	//printf("USBD: State changed %d -", state);
 	switch(state)
 	{
 	case 1:
-		printf(" DEFAULT\n");
+		//printf(" DEFAULT\n");
 		USBD_usbOK = 1;
 		break;
 	case 2:
-		printf(" ADDRESSED\n");
+		//printf(" ADDRESSED\n");
 		USBD_usbOK = 0;
 		break;
 	case 3:
-		printf(" CONFIGURED\n");
+		//printf(" CONFIGURED\n");
 		USBD_usbOK = 1;
 		break;
 	case 4:
-		printf(" SUSPENDED\n");
+		//printf(" SUSPENDED\n");
 		USBD_usbOK = 0;
 		break;
 	}

@@ -61,6 +61,8 @@ void terminal_handleByte(uint8_t byte)
 void terminal_init(sTerminalInterface_t **interfaces)
 {
 	mInterfaces = interfaces;
+
+	printf("Terminal started\n");
 }
 
 int _write(int file, char *data, int len)

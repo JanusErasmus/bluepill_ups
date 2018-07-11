@@ -77,7 +77,7 @@ void cli_handleCommand(char *cmd)
         printf(RED("Unknown command '%s', try help\n"), cmd);
     }
 
-    printf("BluePill $ ");
+    printf("pill$ ");
 }
 
 /*!

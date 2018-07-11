@@ -332,11 +332,23 @@ HAL_StatusTypeDef HAL_RTC_Init(RTC_HandleTypeDef *hrtc)
       
       return HAL_ERROR;
     }
-    
-    /* Initialize date to 1st of January 2000 */
-    hrtc->DateToUpdate.Year = 0x00U;
-    hrtc->DateToUpdate.Month = RTC_MONTH_JANUARY;
-    hrtc->DateToUpdate.Date = 0x01U;
+
+    if(HAL_RTCEx_BKUPRead(hrtc, RTC_BKP_DR1) == 0x32F2)
+    {
+    	uint32_t dateReg = HAL_RTCEx_BKUPRead(hrtc, RTC_BKP_DR2);
+    	hrtc->DateToUpdate.Year = (dateReg >> 8) & 0xFF;
+    	hrtc->DateToUpdate.Month = (dateReg & 0xFF);
+    	hrtc->DateToUpdate.Date = HAL_RTCEx_BKUPRead(hrtc, RTC_BKP_DR3);
+
+    	RTC_DateUpdate(hrtc, 0);
+    }
+    else
+    {
+    	/* Initialize date to 1st of January 2000 */
+    	hrtc->DateToUpdate.Year = 0x00U;
+    	hrtc->DateToUpdate.Month = RTC_MONTH_JANUARY;
+    	hrtc->DateToUpdate.Date = 0x01U;
+    }
 
     /* Set RTC state */
     hrtc->State = HAL_RTC_STATE_READY;
@@ -782,6 +794,8 @@ HAL_StatusTypeDef HAL_RTC_SetDate(RTC_HandleTypeDef *hrtc, RTC_DateTypeDef *sDat
 
   hrtc->State = HAL_RTC_STATE_READY ;
   
+  RTC_DateUpdate(hrtc, 0);
+
   /* Process Unlocked */ 
   __HAL_UNLOCK(hrtc);
   
@@ -1637,6 +1651,11 @@ static void RTC_DateUpdate(RTC_HandleTypeDef* hrtc, uint32_t DayElapsed)
 
   /* Update day of the week */
   hrtc->DateToUpdate.WeekDay = RTC_WeekDayNum(year, month, day);
+
+  uint32_t dateReg = (year << 8) | month;
+
+  HAL_RTCEx_BKUPWrite(hrtc,RTC_BKP_DR2, dateReg);
+  HAL_RTCEx_BKUPWrite(hrtc,RTC_BKP_DR3, day);
 }
 
 /**

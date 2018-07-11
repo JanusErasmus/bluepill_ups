@@ -236,7 +236,7 @@ void terminal_serial_IoInit(void)
   /* UART RX GPIO pin configuration  */
   GPIO_InitStruct.Pin = VCOM_USART_RX_PIN;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
 
   HAL_GPIO_Init(VCOM_USART_RX_GPIO_PORT, &GPIO_InitStruct);
 }

@@ -49,6 +49,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+#include <time.h>
+
 #include "Utils/cli.h"
 #include "Utils/terminal_serial.h"
 #include "stm32f1xx_hal.h"
@@ -262,10 +264,40 @@ static void MX_GPIO_Init(void)
 
 extern "C" {
 
+const char *getDayName(int week_day)
+{
+	switch(week_day)
+	{
+	case RTC_WEEKDAY_MONDAY:
+		return "Monday";
+	case RTC_WEEKDAY_TUESDAY:
+		return "Tuesday";
+	case RTC_WEEKDAY_WEDNESDAY:
+		return "Wednesday";
+	case RTC_WEEKDAY_THURSDAY:
+		return "Thursday";
+	case RTC_WEEKDAY_FRIDAY:
+		return "Friday";
+	case RTC_WEEKDAY_SATURDAY:
+		return "Saturday";
+	case RTC_WEEKDAY_SUNDAY:
+		return "Sunday";
+	}
+
+	return 0;
+}
+
 void rtc_debug(uint8_t argc, char **argv)
 {
 	RTC_TimeTypeDef sTime;
 	RTC_DateTypeDef sDate;
+
+//	time_t now = time(0);
+
+//	struct tm *tm =	localtime(&now);
+
+//	printf("%d %s", (int)now, ctime(&now));
+
 
 	if(argc > 5)
 	{
@@ -285,7 +317,7 @@ void rtc_debug(uint8_t argc, char **argv)
 
 	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 	HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-	printf("RTC date:\n");
+	printf("RTC date: %s\n", getDayName(sDate.WeekDay));
 	printf(" - %04d-%02d-%02d ", 2000 +sDate.Year, sDate.Month, sDate.Date);
 	printf("%02d:%02d:%02d\n", sTime.Hours, sTime.Minutes, sTime.Seconds);
 }
