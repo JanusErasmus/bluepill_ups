@@ -315,9 +315,11 @@ void rtc_debug(uint8_t argc, char **argv)
 		HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 	}
 
+
 	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 	HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-	printf("RTC date: %s\n", getDayName(sDate.WeekDay));
+
+	printf("RTC date: %s %d\n", getDayName(sDate.WeekDay), (int)HAL_RTC_SecondsSinceEpoch(sDate, sTime));
 	printf(" - %04d-%02d-%02d ", 2000 +sDate.Year, sDate.Month, sDate.Date);
 	printf("%02d:%02d:%02d\n", sTime.Hours, sTime.Minutes, sTime.Seconds);
 }

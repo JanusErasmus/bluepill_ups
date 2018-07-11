@@ -1351,6 +1351,65 @@ HAL_StatusTypeDef HAL_RTC_WaitForSynchro(RTC_HandleTypeDef* hrtc)
   return HAL_OK;
 }
 
+
+uint32_t HAL_RTC_SecondsSinceEpoch(RTC_DateTypeDef sDate, RTC_TimeTypeDef sTime)
+{
+	uint32_t epoch = 946684800;//946684799
+
+	//are we years from 2000
+	if(sDate.Year > 0)
+	{
+		for (int k = 0; k < sDate.Year ; k++)
+		{
+			epoch += 31536000;
+			if(RTC_IsLeapYear(2000 + k))
+			{
+				epoch += 86400;
+			}
+		}
+	}
+
+	for (int k = 1; k < sDate.Month; k++)
+	{
+		switch(k)
+		{
+		case 1:
+		case 3:
+		case 5:
+		case 7:
+		case 8:
+		case 10:
+		case 12:
+			epoch += 2678400;
+			break;
+		case 2:
+		{
+			if(RTC_IsLeapYear(sDate.Year))
+			{
+				epoch += 2505600;
+			}
+			else
+			{
+				epoch += 2419200;
+			}
+		}
+		break;
+		case 4:
+		case 6:
+		case 9:
+		case 11:
+			epoch += 2592000;
+			break;
+		}
+	}
+
+	epoch += 86400 * (sDate.Date - 1);
+	epoch += 3600 * (sTime.Hours);
+	epoch += 60 * (sTime.Minutes);
+	epoch += sTime.Seconds;
+	return epoch;
+}
+
 /**
   * @}
   */
@@ -1687,6 +1746,7 @@ static uint8_t RTC_IsLeapYear(uint16_t nYear)
     return 0U;
   }
 }
+
 
 /**
   * @brief  Determines the week number, the day number and the week day number.

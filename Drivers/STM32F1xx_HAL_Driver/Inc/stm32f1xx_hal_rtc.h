@@ -551,6 +551,8 @@ HAL_RTCStateTypeDef HAL_RTC_GetState(RTC_HandleTypeDef *hrtc);
   * @{
   */
 HAL_StatusTypeDef   HAL_RTC_WaitForSynchro(RTC_HandleTypeDef* hrtc);
+
+uint32_t HAL_RTC_SecondsSinceEpoch(RTC_DateTypeDef sDate, RTC_TimeTypeDef sTime);
 /**
   * @}
   */
