@@ -39,7 +39,7 @@ void parseByte(char byte)
 	else
 		mCommand[mCmdIndex++] = byte;
 
-	if (mCmdIndex > CMD_BUFFER_SIZE)
+	if (mCmdIndex >= CMD_BUFFER_SIZE)
 		mCmdIndex = 0;
 }
 
