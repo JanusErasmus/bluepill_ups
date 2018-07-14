@@ -64,7 +64,6 @@
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
 SPI_HandleTypeDef hspi1;
-InterfaceNRF24 *nrf24;
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -118,7 +117,7 @@ int main(void)
 
   MX_SPI1_Init();
 
-  nrf24 = new InterfaceNRF24(&hspi1);
+  InterfaceNRF24::init(&hspi1);
 
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
@@ -128,9 +127,9 @@ int main(void)
   {
 	  terminal_run();
 
-	  nrf24->run();
+	  InterfaceNRF24::get()->run();
 
-      HAL_Delay(500);
+      HAL_Delay(100);
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
   }
 
@@ -297,7 +296,7 @@ static void MX_GPIO_Init(void)
 
    /*Configure GPIO pin : NRF_IRQ_Pin */
    GPIO_InitStruct.Pin = NRF_IRQ_Pin;
-   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
    GPIO_InitStruct.Pull = GPIO_PULLUP;
    HAL_GPIO_Init(NRF_IRQ_GPIO_Port, &GPIO_InitStruct);
 
@@ -356,8 +355,8 @@ const char *getDayName(int week_day)
 
 void nrf(uint8_t argc, char **argv)
 {
-if(nrf24)
-	 nrf24->talk();
+if(InterfaceNRF24::get())
+	InterfaceNRF24::get()->talk();
 //	uint8_t buff[] = {"hi"};
 //	printf("TX %d\n", nRF24_TransmitPacket(buff, 2));
 }

@@ -9,15 +9,15 @@
 #include "Utils/utils.h"
 #include "interface_nrf24.h"
 
-SPI_HandleTypeDef *InterfaceNRF24::hspi = 0;
+InterfaceNRF24 *InterfaceNRF24::__instance = 0;
 
 uint8_t InterfaceNRF24::nrf_rw(uint8_t data)
 {
-	if(!hspi)
+	if(!__instance)
 		return 0;
 
 	uint8_t rx;
-	HAL_SPI_TransmitReceive(hspi, &data, &rx, 1, 1000);
+	HAL_SPI_TransmitReceive(__instance->hspi, &data, &rx, 1, 1000);
 
 	return rx;
 }
@@ -42,6 +42,12 @@ void InterfaceNRF24::nrf_ce_h(void)
 	HAL_GPIO_WritePin(NRF_CE_GPIO_Port, NRF_CE_Pin, GPIO_PIN_SET);
 }
 
+void InterfaceNRF24::init(SPI_HandleTypeDef *spi_handle)
+{
+	if(!__instance)
+		__instance = new InterfaceNRF24(spi_handle);
+}
+
 InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle)
 {
 	hspi = spi_handle;
@@ -58,7 +64,7 @@ InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle)
 	nRF24_SetRFChannel(40);
 
 	// Set data rate
-	nRF24_SetDataRate(nRF24_DR_2Mbps);
+	nRF24_SetDataRate(nRF24_DR_250kbps);
 
 	// Set CRC scheme
 	nRF24_SetCRCScheme(nRF24_CRC_2byte);
@@ -79,7 +85,7 @@ InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle)
 	nRF24_SetTXPower(nRF24_TXPWR_0dBm);
 
 	// Configure auto retransmit: 10 retransmissions with pause of 2500s in between
-	nRF24_SetAutoRetr(nRF24_ARD_2500us, 10);
+	nRF24_SetAutoRetr(nRF24_ARD_4000us, 10);
 
 	// Enable Auto-ACK for pipe#0 (for ACK packets)
 	nRF24_EnableAA(nRF24_PIPE0);
@@ -103,7 +109,7 @@ InterfaceNRF24::~InterfaceNRF24()
 {
 }
 
-#define nRF24_WAIT_TIMEOUT         (uint32_t)0x02
+#define nRF24_WAIT_TIMEOUT         (uint32_t)20
 // Function to transmit data packet
 // input:
 //   pBuf - pointer to the buffer with data to transmit
@@ -133,8 +139,8 @@ nRF24_TXResult InterfaceNRF24::nRF24_TransmitPacket(uint8_t *pBuf, uint8_t lengt
 			break;
 		}
 
-		HAL_Delay(1000);
-	} while (wait--);
+		HAL_Delay(100);
+	} while (--wait);
 
 	// Deassert the CE pin (Standby-II --> Standby-I)
 
@@ -175,8 +181,6 @@ nRF24_TXResult InterfaceNRF24::nRF24_TransmitPacket(uint8_t *pBuf, uint8_t lengt
 	//   - CRC scheme: 2 byte
 void InterfaceNRF24::talk()
 {
-	printf("Started to talk\n");
-
 	// Buffer to store a payload of maximum width
 	uint8_t nRF24_payload[32];
 
@@ -191,7 +195,6 @@ void InterfaceNRF24::talk()
 	int payload_length = 10;
 	static int j = 0;
 
-	printf("TX prep...\n");
 	// Prepare data packet
 	for (int i = 0; i < payload_length; i++) {
 		nRF24_payload[i] = j++;
@@ -217,6 +220,7 @@ void InterfaceNRF24::talk()
 		break;
 	case nRF24_TX_TIMEOUT:
 		printf(RED("TIMEOUT\n"));
+		packets_lost++;
 		break;
 	case nRF24_TX_MAXRT:
 		printf(CYAN("MAX RETRANSMIT\n"));
@@ -228,7 +232,7 @@ void InterfaceNRF24::talk()
 		printf(RED("ERROR\n"));
 		break;
 	}
-	printf("   ARC= %d LOST= %d\n", (int)otx_arc_cnt, (int)packets_lost);
+	printf(" - ARC= %d LOST= %d\n", (int)otx_arc_cnt, (int)packets_lost);
 
 
 	// Set operational mode (PRX == receiver)
@@ -237,9 +241,13 @@ void InterfaceNRF24::talk()
 
 void InterfaceNRF24::run()
 {
+	if(HAL_GPIO_ReadPin(NRF_IRQ_GPIO_Port, NRF_IRQ_Pin))
+		return;
+
     uint8_t payload_length = 10;
 	uint8_t nRF24_payload[32];
-	if (nRF24_GetStatus_RXFIFO() != nRF24_STATUS_RXFIFO_EMPTY) {
+	if (nRF24_GetStatus_RXFIFO() != nRF24_STATUS_RXFIFO_EMPTY)
+	{
 		// Get a payload from the transceiver
 		nRF24_RXResult pipe = nRF24_ReadPayload(nRF24_payload, &payload_length);
 
@@ -250,7 +258,6 @@ void InterfaceNRF24::run()
 		printf("RCV PIPE# %d", (int)pipe);
 		printf(" PAYLOAD:> %d", payload_length);
 		diag_dump_buf(nRF24_payload, payload_length);
-		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	}
 }
 
