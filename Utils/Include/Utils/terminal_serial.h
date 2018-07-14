@@ -151,12 +151,6 @@ void terminal_serial_handleByte(uint8_t byte);
 uint8_t terminal_serial_run();
 void terminal_serial_sleep();
 
-void diag_dump_buf(void *p, uint32_t s);
-
-#define PRINTF printf
-
-#define printReg(_c)  printf(#_c " : 0x%08X\n", (unsigned int)READ_REG(_c));
-
 #ifdef __cplusplus
 }
 #endif

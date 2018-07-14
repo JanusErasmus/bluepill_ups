@@ -128,7 +128,7 @@ void jumpBoot(uint8_t argc, char **argv)
 //    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 //    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12  | GPIO_PIN_11, GPIO_PIN_RESET);
 
-    HAL_Delay(1000);
+    HAL_Delay(100);
 
 
     printf("Bye\n");

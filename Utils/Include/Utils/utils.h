@@ -7,6 +7,9 @@
 
 #ifndef UTILS_INC_UTILS_H_
 #define UTILS_INC_UTILS_H_
+#ifdef __cplusplus
+ extern "C" {
+#endif
 
 #ifndef VT100_OFF
 #define COLOR(__c,__x)    "\x1b[3" #__c "m" __x "\x1b[0m"
@@ -32,5 +35,13 @@
 #define MAGENTA_B(__x)    COLOR_BOLD(5, __x )
 #define CYAN_B(__x)        COLOR_BOLD(6, __x )
 
+void diag_dump_buf(void *p, uint32_t s);
 
+#define PRINTF printf
+
+#define printReg(_c)  printf(#_c " : 0x%08X\n", (unsigned int)READ_REG(_c));
+
+#ifdef __cplusplus
+ }
+#endif
 #endif /* UTILS_INC_UTILS_H_ */
