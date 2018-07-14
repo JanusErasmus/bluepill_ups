@@ -228,6 +228,9 @@ void nRF24_ClosePipe(uint8_t pipe);
 void nRF24_EnableAA(uint8_t pipe);
 void nRF24_DisableAA(uint8_t pipe);
 
+
+int nRF24_GetAddr(uint8_t pip, uint8_t *addr);
+
 uint8_t nRF24_GetStatus(void);
 uint8_t nRF24_GetIRQFlags(void);
 uint8_t nRF24_GetStatus_RXFIFO(void);

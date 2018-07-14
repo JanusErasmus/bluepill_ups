@@ -13,17 +13,16 @@
 
 class InterfaceNRF24
 {
-	nRF24cb nrf_if;
-	static SPI_HandleTypeDef *hspi;
-	uint32_t packets_lost;
+	nRF24cb nrf_cb;
+	static SPI_HandleTypeDef *mSPI;
+	uint32_t mPacketsLost;
 
 	static uint8_t nrf_rw(uint8_t data);
 	static void nrf_cs_l(void);
 	static void nrf_cs_h(void);
 	static void nrf_ce_l(void);
 	static void nrf_ce_h(void);
-	nRF24_TXResult nRF24_TransmitPacket(uint8_t *pBuf, uint8_t length) ;
-
+	nRF24_TXResult transmitPacket(uint8_t *pBuf, uint8_t length);
 
 public:
 	InterfaceNRF24(SPI_HandleTypeDef *spi_handle);
