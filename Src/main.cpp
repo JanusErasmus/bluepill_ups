@@ -130,7 +130,7 @@ int main(void)
 
 	  nrf24->run();
 
-      HAL_Delay(500);
+      HAL_Delay(100);
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
   }
 
@@ -297,7 +297,7 @@ static void MX_GPIO_Init(void)
 
    /*Configure GPIO pin : NRF_IRQ_Pin */
    GPIO_InitStruct.Pin = NRF_IRQ_Pin;
-   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
    GPIO_InitStruct.Pull = GPIO_PULLUP;
    HAL_GPIO_Init(NRF_IRQ_GPIO_Port, &GPIO_InitStruct);
 
@@ -315,7 +315,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

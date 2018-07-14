@@ -44,6 +44,7 @@ void InterfaceNRF24::nrf_ce_h(void)
 
 InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle)
 {
+	packets_lost = 0;
 	hspi = spi_handle;
 
 	nrf_if.nRF24_RW = nrf_rw;
@@ -58,7 +59,7 @@ InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle)
 	nRF24_SetRFChannel(40);
 
 	// Set data rate
-	nRF24_SetDataRate(nRF24_DR_2Mbps);
+	nRF24_SetDataRate(nRF24_DR_250kbps);
 
 	// Set CRC scheme
 	nRF24_SetCRCScheme(nRF24_CRC_2byte);
@@ -79,7 +80,7 @@ InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle)
 	nRF24_SetTXPower(nRF24_TXPWR_0dBm);
 
 	// Configure auto retransmit: 10 retransmissions with pause of 2500s in between
-	nRF24_SetAutoRetr(nRF24_ARD_2500us, 10);
+	nRF24_SetAutoRetr(nRF24_ARD_4000us, 10);
 
 	// Enable Auto-ACK for pipe#0 (for ACK packets)
 	nRF24_EnableAA(nRF24_PIPE0);
@@ -119,7 +120,7 @@ nRF24_TXResult InterfaceNRF24::nRF24_TransmitPacket(uint8_t *pBuf, uint8_t lengt
 
 	// Transfer a data from the specified buffer to the TX FIFO
 	nRF24_WritePayload(pBuf, length);
-	HAL_Delay(100);
+	HAL_Delay(1);
 	// Start a transmission by asserting CE pin (must be held at least 10us)
 	nrf_ce_h();
 
@@ -133,21 +134,20 @@ nRF24_TXResult InterfaceNRF24::nRF24_TransmitPacket(uint8_t *pBuf, uint8_t lengt
 			break;
 		}
 
-		HAL_Delay(1000);
+		HAL_Delay(100);
 	} while (wait--);
-
-	// Deassert the CE pin (Standby-II --> Standby-I)
 
 	if (!wait) {
 		// Timeout
 		return nRF24_TX_TIMEOUT;
 	}
 
-	// Check the flags in STATUS register
-	printf("Status [0x%02X]\n", status);
-
 	// Clear pending IRQ flags
     nRF24_ClearIRQFlags();
+    nRF24_GetStatus();
+
+	// Check the flags in STATUS register
+	printf(" - Status: %02X\n", status);
 
 	if (status & nRF24_FLAG_MAX_RT) {
 		// Auto retransmit counter exceeds the programmed maximum limit (FIFO is not removed)
@@ -175,23 +175,12 @@ nRF24_TXResult InterfaceNRF24::nRF24_TransmitPacket(uint8_t *pBuf, uint8_t lengt
 	//   - CRC scheme: 2 byte
 void InterfaceNRF24::talk()
 {
-	printf("Started to talk\n");
-
 	// Buffer to store a payload of maximum width
 	uint8_t nRF24_payload[32];
 
-	// Some variables
-	uint32_t packets_lost = 0; // global counter of lost packets
-	uint8_t otx;
-	uint8_t otx_plos_cnt; // lost packet count
-	uint8_t otx_arc_cnt; // retransmit count
-
-
-	// The main loop
 	int payload_length = 10;
 	static int j = 0;
 
-	printf("TX prep...\n");
 	// Prepare data packet
 	for (int i = 0; i < payload_length; i++) {
 		nRF24_payload[i] = j++;
@@ -199,24 +188,24 @@ void InterfaceNRF24::talk()
 	}
 
 	// Print a payload
-	printf("PAYLOAD:> TX %d\n", (int)payload_length);
+	printf(" - PAYLOAD:> TX %d\n", (int)payload_length);
 	diag_dump_buf((char *)nRF24_payload, payload_length);
 
 	// Transmit a packet	// Set operational mode (PTX == transmitter)
 	nRF24_SetOperationalMode(nRF24_MODE_TX);
 
-
 	nRF24_TXResult tx_res = nRF24_TransmitPacket(nRF24_payload, payload_length);
-	otx = nRF24_GetRetransmitCounters();
-	otx_plos_cnt = (otx & nRF24_MASK_PLOS_CNT) >> 4; // packets lost counter
-	otx_arc_cnt  = (otx & nRF24_MASK_ARC_CNT); // auto retransmissions counter
+	uint8_t otx = nRF24_GetRetransmitCounters();
+	uint8_t otx_plos_cnt = (otx & nRF24_MASK_PLOS_CNT) >> 4; // packets lost counter
+	uint8_t otx_arc_cnt  = (otx & nRF24_MASK_ARC_CNT); // auto retransmissions counter
 	switch (tx_res) {
 	case nRF24_TX_SUCCESS:
-		printf(GREEN("OK\n"));
+		printf(GREEN(" - OK\n"));
 		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		break;
 	case nRF24_TX_TIMEOUT:
 		printf(RED("TIMEOUT\n"));
+		packets_lost++;
 		break;
 	case nRF24_TX_MAXRT:
 		printf(CYAN("MAX RETRANSMIT\n"));
@@ -228,8 +217,7 @@ void InterfaceNRF24::talk()
 		printf(RED("ERROR\n"));
 		break;
 	}
-	printf("   ARC= %d LOST= %d\n", (int)otx_arc_cnt, (int)packets_lost);
-
+	printf(" - ARC= %d LOST= %d\n", (int)otx_arc_cnt, (int)packets_lost);
 
 	// Set operational mode (PRX == receiver)
 	nRF24_SetOperationalMode(nRF24_MODE_RX);
@@ -237,6 +225,9 @@ void InterfaceNRF24::talk()
 
 void InterfaceNRF24::run()
 {
+	if(HAL_GPIO_ReadPin(NRF_IRQ_GPIO_Port, NRF_IRQ_Pin))
+		return;
+
     uint8_t payload_length = 10;
 	uint8_t nRF24_payload[32];
 	if (nRF24_GetStatus_RXFIFO() != nRF24_STATUS_RXFIFO_EMPTY) {
@@ -250,7 +241,6 @@ void InterfaceNRF24::run()
 		printf("RCV PIPE# %d", (int)pipe);
 		printf(" PAYLOAD:> %d", payload_length);
 		diag_dump_buf(nRF24_payload, payload_length);
-		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	}
 }
 
