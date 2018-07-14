@@ -59,18 +59,28 @@
 #include "Utils/utils.h"
 #include "usb_device.h"
 
+#include "interface_nrf24.h"
 
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
+SPI_HandleTypeDef hspi1;
+InterfaceNRF24 *nrf24;
 
 /* Private variables ---------------------------------------------------------*/
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_SPI1_Init(void);
 static void MX_RTC_Init(void);
 
 /* Private function prototypes -----------------------------------------------*/
+// This is simple transmitter (to one logic address):
+	//   - TX address: '0xE7 0x1C 0xE3'
+	//   - payload: 5 bytes
+	//   - RF channel: 115 (2515MHz)
+	//   - data rate: 250kbps (minimum possible, to increase reception reliability)
+	//   - CRC scheme: 2 byte
 
 int main(void)
 {
@@ -106,6 +116,11 @@ int main(void)
 
   terminal_init((sTerminalInterface_t **)&interfaces);
 
+  MX_SPI1_Init();
+
+  nrf24 = new InterfaceNRF24(&hspi1);
+
+  printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
 
   /* Infinite loop */
@@ -113,7 +128,9 @@ int main(void)
   {
 	  terminal_run();
 
-      HAL_Delay(100);
+	  nrf24->run();
+
+      HAL_Delay(500);
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
   }
 
@@ -246,6 +263,7 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   GPIO_InitStruct.Pin = GPIO_PIN_12;
@@ -260,9 +278,54 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin Output Level */
+   HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
+
+   /*Configure GPIO pin : SPI1_CS_Pin */
+   GPIO_InitStruct.Pin = SPI1_CS_Pin;
+   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+   GPIO_InitStruct.Pull = GPIO_PULLUP;
+   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+   HAL_GPIO_Init(SPI1_CS_GPIO_Port, &GPIO_InitStruct);
+
+   /*Configure GPIO pin : NRF_CE_Pin */
+   GPIO_InitStruct.Pin = NRF_CE_Pin;
+   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+   GPIO_InitStruct.Pull = GPIO_PULLUP;
+   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+   HAL_GPIO_Init(NRF_CE_GPIO_Port, &GPIO_InitStruct);
+
+   /*Configure GPIO pin : NRF_IRQ_Pin */
+   GPIO_InitStruct.Pin = NRF_IRQ_Pin;
+   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+   GPIO_InitStruct.Pull = GPIO_PULLUP;
+   HAL_GPIO_Init(NRF_IRQ_GPIO_Port, &GPIO_InitStruct);
+
 }
 
-extern "C" {
+/* SPI1 init function */
+static void MX_SPI1_Init(void)
+{
+
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
 
 const char *getDayName(int week_day)
 {
@@ -285,6 +348,18 @@ const char *getDayName(int week_day)
 	}
 
 	return 0;
+}
+
+#ifdef __cplusplus
+ extern "C" {
+#endif
+
+void nrf(uint8_t argc, char **argv)
+{
+if(nrf24)
+	 nrf24->talk();
+//	uint8_t buff[] = {"hi"};
+//	printf("TX %d\n", nRF24_TransmitPacket(buff, 2));
 }
 
 void rtc_debug(uint8_t argc, char **argv)
@@ -324,7 +399,11 @@ void rtc_debug(uint8_t argc, char **argv)
 	printf("%02d:%02d:%02d\n", sTime.Hours, sTime.Minutes, sTime.Seconds);
 }
 
-}
+#ifdef __cplusplus
+ }
+#endif
+
+
 /**
   * @brief  This function is executed in case of error occurrence.
   * @param  None
