@@ -215,21 +215,17 @@ void nRF24_SetAddrWidth(uint8_t addr_width) {
 // note: for pipes[2..5] only first byte of address will be written because
 //       pipes 1-5 share the four most significant address bytes
 void nRF24_SetAddr(uint8_t pipe, const uint8_t *addr) {
-	uint8_t addr_width;
+	uint8_t addr_width = nRF24_ReadReg(nRF24_REG_SETUP_AW) + 1;
 
 	// RX_ADDR_Px register
 	switch (pipe) {
 		case nRF24_PIPETX:
 		case nRF24_PIPE0:
 		case nRF24_PIPE1:
-			// Get address width
-			addr_width = nRF24_ReadReg(nRF24_REG_SETUP_AW) + 1;
-			// Write address in reverse order (LSByte first)
-			addr += addr_width;
 			mInterface_cb->nRF24_CSN_L();
 			mInterface_cb->nRF24_RW(nRF24_CMD_W_REGISTER | nRF24_ADDR_REGS[pipe]);
 			do {
-				mInterface_cb->nRF24_RW(*addr--);
+				mInterface_cb->nRF24_RW(*addr++);
 			} while (addr_width--);
 			mInterface_cb->nRF24_CSN_H();
 			break;
@@ -237,13 +233,41 @@ void nRF24_SetAddr(uint8_t pipe, const uint8_t *addr) {
 		case nRF24_PIPE3:
 		case nRF24_PIPE4:
 		case nRF24_PIPE5:
-			// Write address LSBbyte (only first byte from the addr buffer)
 			nRF24_WriteReg(nRF24_ADDR_REGS[pipe], *addr);
 			break;
 		default:
 			// Incorrect pipe number -> do nothing
 			break;
 	}
+}
+
+
+int nRF24_GetAddr(uint8_t pipe, uint8_t *addr)
+{
+	uint8_t addr_width = nRF24_ReadReg(nRF24_REG_SETUP_AW) + 2;
+	int len = addr_width;
+
+	switch (pipe) {
+	case nRF24_PIPETX:
+	case nRF24_PIPE0:
+	case nRF24_PIPE1:
+			nRF24_ReadMBReg(nRF24_ADDR_REGS[pipe], addr, len);
+		break;
+
+	case nRF24_PIPE2:
+	case nRF24_PIPE3:
+	case nRF24_PIPE4:
+	case nRF24_PIPE5:
+		len = 1;
+		// Write address LSBbyte (only first byte from the addr buffer)
+		*addr = nRF24_ReadReg(nRF24_ADDR_REGS[pipe]);
+		break;
+	default:
+		// Incorrect pipe number -> do nothing
+		break;
+	}
+
+	return len;
 }
 
 // Configure RF output power in TX mode
