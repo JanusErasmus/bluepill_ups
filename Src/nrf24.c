@@ -308,8 +308,6 @@ void nRF24_SetRXPipe(uint8_t pipe, uint8_t aa_state, uint8_t payload_len) {
 	reg = (nRF24_ReadReg(nRF24_REG_EN_RXADDR) | (1 << pipe)) & nRF24_MASK_EN_RX;
 	nRF24_WriteReg(nRF24_REG_EN_RXADDR, reg);
 
-	printf("EN_RX: 0x%02X\n", nRF24_ReadReg(nRF24_REG_EN_RXADDR));
-
 	// Set RX payload length (RX_PW_Px register)
 	nRF24_WriteReg(nRF24_RX_PW_PIPE[pipe], payload_len & nRF24_MASK_RX_PW);
 
@@ -321,8 +319,6 @@ void nRF24_SetRXPipe(uint8_t pipe, uint8_t aa_state, uint8_t payload_len) {
 		reg &= ~(1 << pipe);
 	}
 	nRF24_WriteReg(nRF24_REG_EN_AA, reg);
-
-	printf("EN_AA: 0x%02X\n", nRF24_ReadReg(nRF24_REG_EN_AA));
 }
 
 // Disable specified RX pipe

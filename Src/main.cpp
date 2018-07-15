@@ -64,7 +64,6 @@
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
 SPI_HandleTypeDef hspi1;
-InterfaceNRF24 *nrf24;
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -118,7 +117,8 @@ int main(void)
 
   MX_SPI1_Init();
 
-  nrf24 = new InterfaceNRF24(&hspi1);
+  InterfaceNRF24::init(&hspi1);
+//  nrf24 = InterfaceNRF24::get();//new InterfaceNRF24(&hspi1);//InterfaceNRF24::get();
 
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
@@ -128,7 +128,7 @@ int main(void)
   {
 	  terminal_run();
 
-	  nrf24->run();
+	  InterfaceNRF24::get()->run();
 
       HAL_Delay(100);
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
@@ -356,10 +356,29 @@ const char *getDayName(int week_day)
 
 void nrf(uint8_t argc, char **argv)
 {
-if(nrf24)
-	 nrf24->talk();
-//	uint8_t buff[] = {"hi"};
-//	printf("TX %d\n", nRF24_TransmitPacket(buff, 2));
+	if(InterfaceNRF24::get())
+	{
+		uint8_t LSB = 0x00;
+
+		if(argc > 1)
+			LSB = strtoul(argv[1], 0, 16);
+
+		// Buffer to store a payload of maximum width
+		uint8_t nRF24_payload[32];
+
+		int payload_length = 10;
+		static int j = 0;
+
+		// Prepare data packet
+		for (int i = 0; i < payload_length; i++) {
+			nRF24_payload[i] = j++;
+			if (j > 0x000000FF) j = 0;
+		}
+
+		uint8_t nRF24_ADDR[] = { LSB, 0x22, 0x33 };
+		printf("TX result %d\n", InterfaceNRF24::get()->transmit(nRF24_ADDR, nRF24_payload, payload_length));
+
+	}
 }
 
 void rtc_debug(uint8_t argc, char **argv)

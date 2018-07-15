@@ -13,6 +13,7 @@
 
 class InterfaceNRF24
 {
+	static InterfaceNRF24 *__instance;
 	nRF24cb nrf_cb;
 	static SPI_HandleTypeDef *mSPI;
 	uint32_t mPacketsLost;
@@ -28,8 +29,11 @@ public:
 	InterfaceNRF24(SPI_HandleTypeDef *spi_handle);
 	virtual ~InterfaceNRF24();
 
+	static void init(SPI_HandleTypeDef *spi_handle);
+	static InterfaceNRF24 *get(){ return __instance; }
+
 	void run();
-	void talk();
+	int transmit(uint8_t *addr, uint8_t *payload, uint8_t length);
 };
 
 #endif /* SRC_INTERFACE_NRF24_H_ */
