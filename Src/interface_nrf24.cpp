@@ -13,15 +13,14 @@ InterfaceNRF24 *InterfaceNRF24::__instance = 0;
 
 SPI_HandleTypeDef *InterfaceNRF24::mSPI = 0;
 
-uint8_t InterfaceNRF24::nrf_rw(uint8_t data)
+uint8_t InterfaceNRF24::nrf_t(uint8_t *tx_data, uint8_t *rx_data, int len)
 {
 	if(!mSPI)
 		return 0;
 
-	uint8_t rx;
-	HAL_SPI_TransmitReceive(mSPI, &data, &rx, 1, 1000);
+	HAL_SPI_TransmitReceive(mSPI, tx_data, rx_data, len, 1000);
 
-	return rx;
+	return len;
 }
 
 void InterfaceNRF24::nrf_cs_l(void)
@@ -55,7 +54,7 @@ InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle)
 	mPacketsLost = 0;
 	mSPI = spi_handle;
 
-	nrf_cb.nRF24_RW = nrf_rw;
+	nrf_cb.nRF24_T = nrf_t;
 	nrf_cb.nRF24_CSN_L = nrf_cs_l;
 	nrf_cb.nRF24_CSN_H = nrf_cs_h;
 	nrf_cb.nRF24_CE_L = nrf_ce_l;
@@ -107,25 +106,25 @@ InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle)
 	// Clear any pending IRQ flags
 	nRF24_ClearIRQFlags();
 
-//	uint8_t pipeAddr[8];
-//	int len = nRF24_GetAddr(nRF24_PIPETX, pipeAddr);
-//	printf("PIPETX\n");
-//	diag_dump_buf(pipeAddr, len);
-//	len = nRF24_GetAddr(nRF24_PIPE0, pipeAddr);
-//	printf("PIPE0\n");
-//	diag_dump_buf(pipeAddr, len);
-//	len = nRF24_GetAddr(nRF24_PIPE1, pipeAddr);
-//	printf("PIPE1\n");
-//	diag_dump_buf(pipeAddr, len);
-//	len = nRF24_GetAddr(nRF24_PIPE2, pipeAddr);
-//	printf("PIPE2\n");
-//	diag_dump_buf(pipeAddr, len);
-//	len = nRF24_GetAddr(nRF24_PIPE3, pipeAddr);
-//	printf("PIPE3\n");
-//	diag_dump_buf(pipeAddr, len);
-//	len = nRF24_GetAddr(nRF24_PIPE4, pipeAddr);
-//	printf("PIPE4\n");
-//	diag_dump_buf(pipeAddr, len);
+	uint8_t pipeAddr[8];
+	int len = nRF24_GetAddr(nRF24_PIPETX, pipeAddr);
+	printf("PIPETX\n");
+	diag_dump_buf(pipeAddr, len);
+	len = nRF24_GetAddr(nRF24_PIPE0, pipeAddr);
+	printf("PIPE0\n");
+	diag_dump_buf(pipeAddr, len);
+	len = nRF24_GetAddr(nRF24_PIPE1, pipeAddr);
+	printf("PIPE1\n");
+	diag_dump_buf(pipeAddr, len);
+	len = nRF24_GetAddr(nRF24_PIPE2, pipeAddr);
+	printf("PIPE2\n");
+	diag_dump_buf(pipeAddr, len);
+	len = nRF24_GetAddr(nRF24_PIPE3, pipeAddr);
+	printf("PIPE3\n");
+	diag_dump_buf(pipeAddr, len);
+	len = nRF24_GetAddr(nRF24_PIPE4, pipeAddr);
+	printf("PIPE4\n");
+	diag_dump_buf(pipeAddr, len);
 
 	// Wake the transceiver
 	nRF24_SetPowerMode(nRF24_PWR_UP);
@@ -204,14 +203,10 @@ int InterfaceNRF24::transmit(uint8_t *addr, uint8_t *payload, uint8_t length)
 {
 	int  tx_length = 0;
 
-//	nrf_ce_l();
-
     // Configure TX PIPE
     nRF24_SetAddr(nRF24_PIPETX, addr); // program TX address
 	nRF24_SetAddr(nRF24_PIPE0, addr); // program address for pipe to receive ACK
-//	nRF24_SetRXPipe(nRF24_PIPE0	, nRF24_AA_ON, 10); // Auto-ACK: enabled, payload length: 10 bytes
-
-//	nrf_ce_h();
+	nRF24_SetRXPipe(nRF24_PIPE0	, nRF24_AA_ON, 10); // Auto-ACK: enabled, payload length: 10 bytes
 
     printf("ADDR: \n");
     diag_dump_buf(addr, 3);
@@ -222,7 +217,6 @@ int InterfaceNRF24::transmit(uint8_t *addr, uint8_t *payload, uint8_t length)
 
 	// Transmit a packet
 	nRF24_SetOperationalMode(nRF24_MODE_TX);
-//	HAL_Delay(100);
 
 	nRF24_TXResult tx_res = transmitPacket(payload, length);
 	uint8_t otx = nRF24_GetRetransmitCounters();

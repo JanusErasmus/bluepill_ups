@@ -203,7 +203,7 @@ static const uint8_t nRF24_ADDR_REGS[7] = {
 };
 
 typedef struct {
-	uint8_t (*nRF24_RW)(uint8_t data);
+	uint8_t (*nRF24_T)(uint8_t *tx_data, uint8_t *rx_data, int len);
 	void (*nRF24_CSN_L)(void);
 	void (*nRF24_CSN_H)(void);
 	void (*nRF24_CE_L)(void);

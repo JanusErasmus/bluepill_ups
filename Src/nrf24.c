@@ -1,5 +1,6 @@
 // Functions to manage the nRF24L01+ transceiver
 
+#include <string.h>
 
 #include "nrf24.h"
 
@@ -10,14 +11,14 @@ static nRF24cb *mInterface_cb = 0;
 //   reg - number of register to read
 // return: value of register
 static uint8_t nRF24_ReadReg(uint8_t reg) {
-	uint8_t value;
+	uint8_t value[2];
+	uint8_t tx = reg & nRF24_MASK_REG_MAP;
 
 	mInterface_cb->nRF24_CSN_L();
-	mInterface_cb->nRF24_RW(reg & nRF24_MASK_REG_MAP);
-	value = mInterface_cb->nRF24_RW(nRF24_CMD_NOP);
+	mInterface_cb->nRF24_T(&tx , value, 2);
 	mInterface_cb->nRF24_CSN_H();
 
-	return value;
+	return value[1];
 }
 
 // Write a new value to register
@@ -28,15 +29,25 @@ static void nRF24_WriteReg(uint8_t reg, uint8_t value) {
 	mInterface_cb->nRF24_CSN_L();
 	if (reg < nRF24_CMD_W_REGISTER) {
 		// This is a register access
-		mInterface_cb->nRF24_RW(nRF24_CMD_W_REGISTER | (reg & nRF24_MASK_REG_MAP));
-		mInterface_cb->nRF24_RW(value);
+		uint8_t tx[2];
+		tx[0] = nRF24_CMD_W_REGISTER | (reg & nRF24_MASK_REG_MAP);
+		tx[1] = value;
+		uint8_t rx[2];
+		mInterface_cb->nRF24_T(tx, rx, 2);
 	} else {
+		uint8_t tx[2];
+		tx[0] = reg;
+		tx[1] = value;
+		uint8_t rx[2];
 		// This is a single byte command or future command/register
-		mInterface_cb->nRF24_RW(reg);
 		if ((reg != nRF24_CMD_FLUSH_TX) && (reg != nRF24_CMD_FLUSH_RX) && \
 				(reg != nRF24_CMD_REUSE_TX_PL) && (reg != nRF24_CMD_NOP)) {
 			// Send register value
-			mInterface_cb->nRF24_RW(value);
+			mInterface_cb->nRF24_T(tx, rx, 2);
+		}
+		else
+		{
+		mInterface_cb->nRF24_T(&reg, rx, 1);
 		}
 	}
 	mInterface_cb->nRF24_CSN_H();
@@ -49,11 +60,14 @@ static void nRF24_WriteReg(uint8_t reg, uint8_t value) {
 //   count - number of bytes to read
 static void nRF24_ReadMBReg(uint8_t reg, uint8_t *pBuf, uint8_t count) {
 	mInterface_cb->nRF24_CSN_L();
-	mInterface_cb->nRF24_RW(reg);
-	while (count--) {
-		*pBuf++ = mInterface_cb->nRF24_RW(nRF24_CMD_NOP);
-	}
+	uint8_t tx[33];
+	uint8_t rx[33];
+	memset(tx, 0, 33);
+	tx[0] = reg;
+	mInterface_cb->nRF24_T(tx, rx, count + 1);
 	mInterface_cb->nRF24_CSN_H();
+
+	memcpy(pBuf, &rx[1], count);
 }
 
 // Write a multi-byte register
@@ -63,10 +77,13 @@ static void nRF24_ReadMBReg(uint8_t reg, uint8_t *pBuf, uint8_t count) {
 //   count - number of bytes to write
 static void nRF24_WriteMBReg(uint8_t reg, uint8_t *pBuf, uint8_t count) {
 	mInterface_cb->nRF24_CSN_L();
-	mInterface_cb->nRF24_RW(reg);
-	while (count--) {
-		mInterface_cb->nRF24_RW(*pBuf++);
-	}
+	uint8_t tx[33];
+	memset(tx, 0, 33);
+	tx[0] = reg;
+	memcpy(&tx[1], pBuf, count);
+	uint8_t rx[33];
+
+	mInterface_cb->nRF24_T(tx, rx, count + 1);
 	mInterface_cb->nRF24_CSN_H();
 }
 
@@ -223,10 +240,12 @@ void nRF24_SetAddr(uint8_t pipe, const uint8_t *addr) {
 		case nRF24_PIPE0:
 		case nRF24_PIPE1:
 			mInterface_cb->nRF24_CSN_L();
-			mInterface_cb->nRF24_RW(nRF24_CMD_W_REGISTER | nRF24_ADDR_REGS[pipe]);
-			do {
-				mInterface_cb->nRF24_RW(*addr++);
-			} while (addr_width--);
+
+			uint8_t tx[32];
+			uint8_t rx[32];
+			tx[0] = nRF24_CMD_W_REGISTER | nRF24_ADDR_REGS[pipe];
+			memcpy(&tx[1], addr, addr_width + 1);
+			mInterface_cb->nRF24_T(tx, rx, addr_width + 2);
 			mInterface_cb->nRF24_CSN_H();
 			break;
 		case nRF24_PIPE2:

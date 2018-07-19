@@ -18,7 +18,7 @@ class InterfaceNRF24
 	static SPI_HandleTypeDef *mSPI;
 	uint32_t mPacketsLost;
 
-	static uint8_t nrf_rw(uint8_t data);
+	static uint8_t nrf_t(uint8_t *tx_data, uint8_t *rx_data, int len);
 	static void nrf_cs_l(void);
 	static void nrf_cs_h(void);
 	static void nrf_ce_l(void);
