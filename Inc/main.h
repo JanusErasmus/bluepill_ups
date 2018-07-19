@@ -65,6 +65,10 @@
 #define NRF_CE_GPIO_Port GPIOB
 #define NRF_IRQ_Pin GPIO_PIN_0
 #define NRF_IRQ_GPIO_Port GPIOB
+#define NRF_ADDR0_Pin GPIO_PIN_8
+#define NRF_ADDR0_GPIO_Port GPIOB
+#define NRF_ADDR1_GPIO_Port GPIOB
+#define NRF_ADDR1_Pin GPIO_PIN_9
 
 /* ########################## Assert Selection ############################## */
 /**

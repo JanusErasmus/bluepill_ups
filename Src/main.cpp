@@ -61,6 +61,10 @@
 
 #include "interface_nrf24.h"
 
+
+uint8_t netAddress[] = {0x00, 0x44, 0x55};
+int payload_length = 10;
+
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
 SPI_HandleTypeDef hspi1;
@@ -117,7 +121,13 @@ int main(void)
 
   MX_SPI1_Init();
 
-  InterfaceNRF24::init(&hspi1);
+  if(HAL_GPIO_ReadPin(NRF_ADDR0_GPIO_Port, NRF_ADDR0_Pin) == GPIO_PIN_RESET)
+	  netAddress[0] |= 0x01;
+
+  if(HAL_GPIO_ReadPin(NRF_ADDR1_GPIO_Port, NRF_ADDR1_Pin) == GPIO_PIN_RESET)
+	  netAddress[0] |= 0x02;
+
+  InterfaceNRF24::init(&hspi1, netAddress, 3);
 
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
@@ -258,48 +268,59 @@ static void MX_RTC_Init(void)
 */
 static void MX_GPIO_Init(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct;
+	GPIO_InitTypeDef GPIO_InitStruct;
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
 
-  GPIO_InitStruct.Pin = GPIO_PIN_12;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
+	GPIO_InitStruct.Pin = GPIO_PIN_12;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : LED_Pin */
-  GPIO_InitStruct.Pin = LED_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : LED_Pin */
+	GPIO_InitStruct.Pin = LED_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin Output Level */
-   HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
 
-   /*Configure GPIO pin : SPI1_CS_Pin */
-   GPIO_InitStruct.Pin = SPI1_CS_Pin;
-   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-   GPIO_InitStruct.Pull = GPIO_PULLUP;
-   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-   HAL_GPIO_Init(SPI1_CS_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : SPI1_CS_Pin */
+	GPIO_InitStruct.Pin = SPI1_CS_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(SPI1_CS_GPIO_Port, &GPIO_InitStruct);
 
-   /*Configure GPIO pin : NRF_CE_Pin */
-   GPIO_InitStruct.Pin = NRF_CE_Pin;
-   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-   GPIO_InitStruct.Pull = GPIO_PULLUP;
-   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-   HAL_GPIO_Init(NRF_CE_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : NRF_CE_Pin */
+	GPIO_InitStruct.Pin = NRF_CE_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(NRF_CE_GPIO_Port, &GPIO_InitStruct);
 
-   /*Configure GPIO pin : NRF_IRQ_Pin */
-   GPIO_InitStruct.Pin = NRF_IRQ_Pin;
-   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-   GPIO_InitStruct.Pull = GPIO_PULLUP;
-   HAL_GPIO_Init(NRF_IRQ_GPIO_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : NRF_IRQ_Pin */
+	GPIO_InitStruct.Pin = NRF_IRQ_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(NRF_IRQ_GPIO_Port, &GPIO_InitStruct);
 
+	/*Configure GPIO pin : NRF_ADDR0_Pin */
+	GPIO_InitStruct.Pin = NRF_ADDR0_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(NRF_ADDR0_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : NRF_ADDR1_Pin */
+	GPIO_InitStruct.Pin = NRF_ADDR1_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(NRF_ADDR1_GPIO_Port, &GPIO_InitStruct);
 }
 
 /* SPI1 init function */
@@ -357,15 +378,17 @@ void nrf(uint8_t argc, char **argv)
 {
 	if(InterfaceNRF24::get())
 	{
-		uint8_t LSB = 0x00;
+		uint8_t address[5];
+		memcpy(address, netAddress, 5);
 
 		if(argc > 1)
-			LSB = strtoul(argv[1], 0, 16);
+		{
+			address[0] = strtoul(argv[1], 0, 16);
+		}
 
 		// Buffer to store a payload of maximum width
 		uint8_t nRF24_payload[32];
 
-		int payload_length = 10;
 		static int j = 0;
 
 		// Prepare data packet
@@ -374,8 +397,7 @@ void nrf(uint8_t argc, char **argv)
 			if (j > 0x000000FF) j = 0;
 		}
 
-		uint8_t nRF24_ADDR[] = { LSB, 0x22, 0x33 };
-		printf("TX result %d\n", InterfaceNRF24::get()->transmit(nRF24_ADDR, nRF24_payload, payload_length));
+		printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, nRF24_payload, payload_length));
 
 	}
 }
