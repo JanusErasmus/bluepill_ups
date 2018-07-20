@@ -63,7 +63,7 @@
 
 
 uint8_t netAddress[] = {0x00, 0x44, 0x55};
-int payload_length = 10;
+#define payload_length 16
 
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
@@ -78,12 +78,32 @@ static void MX_SPI1_Init(void);
 static void MX_RTC_Init(void);
 
 /* Private function prototypes -----------------------------------------------*/
-// This is simple transmitter (to one logic address):
-	//   - TX address: '0xE7 0x1C 0xE3'
-	//   - payload: 5 bytes
-	//   - RF channel: 115 (2515MHz)
-	//   - data rate: 250kbps (minimum possible, to increase reception reliability)
-	//   - CRC scheme: 2 byte
+typedef struct {
+	uint32_t timestamp;		//4
+	uint8_t inputs;			//1
+	uint8_t outputs;		//1
+	uint16_t voltages[4];	//8
+	uint16_t temperature;	//2
+}__attribute__((packed, aligned(4))) nodeData_s;
+
+bool NRFreceivedCB(int pipe, uint8_t *data, int len)
+{
+	printf("RCV PIPE# %d\n", (int)pipe);
+	printf(" PAYLOAD: %d\n", len);
+	diag_dump_buf(data, len);
+
+	//Broadcast pipe
+	if(pipe == 1)
+	{
+		nodeData_s pay;
+		memset(&pay, 0, 16);
+		pay.timestamp = HAL_GetTick();
+		pay.temperature = 0xEEAA;
+		InterfaceNRF24::get()->transmit(netAddress, (uint8_t*)&pay, 16);
+	}
+
+	return false;
+}
 
 int main(void)
 {
@@ -128,6 +148,7 @@ int main(void)
 	  netAddress[0] |= 0x02;
 
   InterfaceNRF24::init(&hspi1, netAddress, 3);
+  InterfaceNRF24::get()->setRXcb(NRFreceivedCB);
 
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
@@ -386,18 +407,13 @@ void nrf(uint8_t argc, char **argv)
 			address[0] = strtoul(argv[1], 0, 16);
 		}
 
-		// Buffer to store a payload of maximum width
-		uint8_t nRF24_payload[32];
 
-		static int j = 0;
+		nodeData_s pay;
+		memset(&pay, 0, 16);
+		pay.timestamp = HAL_GetTick();
+		pay.temperature = 0xEEAA;
 
-		// Prepare data packet
-		for (int i = 0; i < payload_length; i++) {
-			nRF24_payload[i] = j++;
-			if (j > 0x000000FF) j = 0;
-		}
-
-		printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, nRF24_payload, payload_length));
+		printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, (uint8_t*)&pay, 16));
 
 	}
 }
