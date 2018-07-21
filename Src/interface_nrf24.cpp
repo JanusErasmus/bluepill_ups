@@ -101,7 +101,8 @@ InterfaceNRF24::InterfaceNRF24(SPI_HandleTypeDef *spi_handle, uint8_t *net_addr,
 	nRF24_Init(&nrf_cb);
 
 	// Set RF channel
-	nRF24_SetRFChannel(40);
+	nRF24_SetRFChannel(84);
+	printf("NRF @ %dMHz\n", 2400 + 84);
 
 	// Set data rate
 	nRF24_SetDataRate(nRF24_DR_250kbps);
@@ -177,7 +178,9 @@ nRF24_TXResult InterfaceNRF24::transmitPacket(uint8_t *pBuf, uint8_t length)
 
 	// Transfer a data from the specified buffer to the TX FIFO
 	nRF24_WritePayload(pBuf, length);
+
 	// Start a transmission by asserting CE pin (must be held at least 10us)
+	HAL_Delay(100 * (mNetAddress[0] + 1));
 	nrf_ce_h();
 	HAL_Delay(1);
 
@@ -199,15 +202,12 @@ nRF24_TXResult InterfaceNRF24::transmitPacket(uint8_t *pBuf, uint8_t length)
 		return nRF24_TX_TIMEOUT;
 	}
 
-	// Clear pending IRQ flags
-    nRF24_ClearIRQFlags();
-    nRF24_GetStatus();
-
 	// Check the flags in STATUS register
 	printf(" - Status: %02X\n", status);
 
 	if (status & nRF24_FLAG_MAX_RT) {
 		// Auto retransmit counter exceeds the programmed maximum limit (FIFO is not removed)
+		nRF24_FlushTX();
 		return nRF24_TX_MAXRT;
 	}
 
@@ -269,6 +269,10 @@ int InterfaceNRF24::transmit(uint8_t *addr, uint8_t *payload, uint8_t length)
 	}
 	printf(" - ARC= %d LOST= %d\n", (int)otx_arc_cnt, (int)mPacketsLost);
 
+	//	// Clear pending IRQ flags
+	    nRF24_ClearIRQFlags();
+	    nRF24_GetStatus();
+
 	// Set operational mode (PRX == receiver)
 	nRF24_SetOperationalMode(nRF24_MODE_RX);
 
@@ -291,13 +295,12 @@ void InterfaceNRF24::run()
 		// Clear all pending IRQ flags
 		nRF24_ClearIRQFlags();
 
-
 		if(receivedCB)
 			receivedCB(pipe, nRF24_payload, payload_length);
 
-		printf("RCV PIPE# %d", (int)pipe);
-		printf(" PAYLOAD:> %d", payload_length);
-		diag_dump_buf(nRF24_payload, payload_length);
+		//printf("RCV PIPE# %d", (int)pipe);
+		//printf(" PAYLOAD:> %d", payload_length);
+		//diag_dump_buf(nRF24_payload, payload_length);
 	}
 }
 

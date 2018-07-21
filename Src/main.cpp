@@ -68,6 +68,7 @@ uint8_t netAddress[] = {0x00, 0x44, 0x55};
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
 SPI_HandleTypeDef hspi1;
+ADC_HandleTypeDef hadc1;
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -76,6 +77,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_RTC_Init(void);
+static void MX_ADC1_Init(void);
 
 /* Private function prototypes -----------------------------------------------*/
 typedef struct {
@@ -86,6 +88,91 @@ typedef struct {
 	uint16_t temperature;	//2
 }__attribute__((packed, aligned(4))) nodeData_s;
 
+uint32_t getADCstep()
+{
+	uint32_t adc = 0;
+	ADC_ChannelConfTypeDef sConfig;
+	sConfig.Channel = ADC_CHANNEL_VREFINT;
+	sConfig.Rank = ADC_REGULAR_RANK_1;
+	sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
+		_Error_Handler(__FILE__, __LINE__);
+	}
+
+	HAL_ADC_Start(&hadc1);
+	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+	{
+		adc = HAL_ADC_GetValue(&hadc1);
+		//printf("REF	: %d\n", adc);
+	}
+	HAL_ADC_Stop(&hadc1);
+
+	//this amount of steps measure 1.2V
+	uint32_t step = 1200000000 / adc;
+	printf("step %d\n", (int)step);
+	return step;
+}
+
+uint32_t sampleTemperature()
+{
+	uint32_t adc = 0;
+
+	ADC_ChannelConfTypeDef sConfig;
+  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+	HAL_ADC_Start(&hadc1);
+	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+	{
+		adc = HAL_ADC_GetValue(&hadc1);
+		//printf("ADC: %d\n", adc);
+	}
+	HAL_ADC_Stop(&hadc1);
+
+
+	return adc;
+}
+
+uint32_t getTemperature()
+{
+	uint32_t sum = 0;
+
+	HAL_ADCEx_Calibration_Start(&hadc1);
+
+	for (int k = 0; k < 8; ++k) {
+		sum += sampleTemperature();
+	}
+
+	uint32_t adc = sum >> 3;
+	printf("adc: %d\n" , (int)adc);
+	int voltage = adc * getADCstep();//845666; //x10^9
+	//printf(" *	%d\n", voltage);
+	voltage = 1.43e9 - voltage;
+	//printf(" -	%d\n", voltage);
+	voltage /= 4.3e3;
+	//printf(" /	%d\n", voltage);
+
+	uint32_t temp = 25000 + voltage;
+	printf("temp: %d\n", (int)temp);
+	return temp;
+}
+
+void report(uint8_t *address)
+{
+	nodeData_s pay;
+	memset(&pay, 0, 16);
+	pay.timestamp = HAL_GetTick();
+	pay.temperature = getTemperature();
+
+	printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, (uint8_t*)&pay, 16));
+}
+
 bool NRFreceivedCB(int pipe, uint8_t *data, int len)
 {
 	printf("RCV PIPE# %d\n", (int)pipe);
@@ -95,11 +182,7 @@ bool NRFreceivedCB(int pipe, uint8_t *data, int len)
 	//Broadcast pipe
 	if(pipe == 1)
 	{
-		nodeData_s pay;
-		memset(&pay, 0, 16);
-		pay.timestamp = HAL_GetTick();
-		pay.temperature = 0xEEAA;
-		InterfaceNRF24::get()->transmit(netAddress, (uint8_t*)&pay, 16);
+		report(netAddress);
 	}
 
 	return false;
@@ -140,6 +223,7 @@ int main(void)
   terminal_init((sTerminalInterface_t **)&interfaces);
 
   MX_SPI1_Init();
+  MX_ADC1_Init();
 
   if(HAL_GPIO_ReadPin(NRF_ADDR0_GPIO_Port, NRF_ADDR0_Pin) == GPIO_PIN_RESET)
 	  netAddress[0] |= 0x01;
@@ -152,6 +236,8 @@ int main(void)
 
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
+
+  report(netAddress);
 
   /* Infinite loop */
   while (1)
@@ -205,9 +291,10 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_USB;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_USB|RCC_PERIPHCLK_ADC;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV1_5;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -368,6 +455,26 @@ static void MX_SPI1_Init(void)
 
 }
 
+/* ADC1 init function */
+static void MX_ADC1_Init(void)
+{
+
+    /**Common config
+    */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE	;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 const char *getDayName(int week_day)
 {
 	switch(week_day)
@@ -407,16 +514,17 @@ void nrf(uint8_t argc, char **argv)
 			address[0] = strtoul(argv[1], 0, 16);
 		}
 
-
-		nodeData_s pay;
-		memset(&pay, 0, 16);
-		pay.timestamp = HAL_GetTick();
-		pay.temperature = 0xEEAA;
-
-		printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, (uint8_t*)&pay, 16));
+		report(address);
 
 	}
 }
+
+void adc(uint8_t argc, char **argv)
+{
+	uint32_t temp = getTemperature();
+	printf("temp: %dmC\n", (int)temp);
+}
+
 
 void rtc_debug(uint8_t argc, char **argv)
 {
