@@ -60,6 +60,7 @@
 #include "usb_device.h"
 
 #include "interface_nrf24.h"
+#include "gate_lights.h"
 
 
 uint8_t netAddress[] = {0x00, 0x44, 0x55};
@@ -69,7 +70,6 @@ uint8_t netAddress[] = {0x00, 0x44, 0x55};
 RTC_HandleTypeDef hrtc;
 SPI_HandleTypeDef hspi1;
 ADC_HandleTypeDef hadc1;
-
 /* Private variables ---------------------------------------------------------*/
 
 /* Private function prototypes -----------------------------------------------*/
@@ -200,6 +200,8 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
 
+  GateLights gate;
+
   HAL_Delay(1000);
 
   MX_USB_DEVICE_Init();
@@ -237,13 +239,15 @@ int main(void)
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
 
-  report(netAddress);
+  gate.set(GateLights::STREET_TO_HOUSE_OPENING);
+
+//  report(netAddress);
 
   /* Infinite loop */
   while (1)
   {
 	  terminal_run();
-
+	  gate.run();
 	  InterfaceNRF24::get()->run();
 
       HAL_Delay(100);
@@ -429,6 +433,36 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
 	GPIO_InitStruct.Pull = GPIO_PULLUP;
 	HAL_GPIO_Init(NRF_ADDR1_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GATE GPIO pin : GATE_OUT0_Pin */
+	GPIO_InitStruct.Pin = GATE_OUT0_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GATE_OUT0_Port, &GPIO_InitStruct);
+
+	/*Configure GATE GPIO pin : GATE_OUT1_Pin */
+	GPIO_InitStruct.Pin = GATE_OUT1_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GATE_OUT1_Port, &GPIO_InitStruct);
+
+	/*Configure GATE GPIO pin : GATE_OUT2_Pin */
+	GPIO_InitStruct.Pin = GATE_OUT2_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GATE_OUT2_Port, &GPIO_InitStruct);
+
+	/*Configure GATE GPIO pin : GATE_OUT3_Pin */
+	GPIO_InitStruct.Pin = GATE_OUT3_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GATE_OUT3_Port, &GPIO_InitStruct);
+
+	/*Configure GATE GPIO pin : GATE_OUT4_Pin */
+	GPIO_InitStruct.Pin = GATE_OUT4_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GATE_OUT4_Port, &GPIO_InitStruct);
 }
 
 /* SPI1 init function */
