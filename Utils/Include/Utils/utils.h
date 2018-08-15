@@ -7,6 +7,8 @@
 
 #ifndef UTILS_INC_UTILS_H_
 #define UTILS_INC_UTILS_H_
+#include <stdint.h>
+
 #ifdef __cplusplus
  extern "C" {
 #endif

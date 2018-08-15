@@ -60,8 +60,9 @@
 #include "usb_device.h"
 
 #include "interface_nrf24.h"
-#include "gate_lights.h"
-
+#include "centurion_gate.h"
+#include "driveway_lights.h"
+#include "driveway_motors.h"
 
 uint8_t netAddress[] = {0x00, 0x44, 0x55};
 #define payload_length 16
@@ -70,14 +71,20 @@ uint8_t netAddress[] = {0x00, 0x44, 0x55};
 RTC_HandleTypeDef hrtc;
 SPI_HandleTypeDef hspi1;
 ADC_HandleTypeDef hadc1;
+TIM_HandleTypeDef htim2;
+CenturionGate streetGate;
+CenturionGate houseGate;
 /* Private variables ---------------------------------------------------------*/
 
 /* Private function prototypes -----------------------------------------------*/
+extern "C" {
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_RTC_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM2_Init(void);
+}
 
 /* Private function prototypes -----------------------------------------------*/
 typedef struct {
@@ -170,7 +177,15 @@ void report(uint8_t *address)
 	pay.timestamp = HAL_GetTick();
 	pay.temperature = getTemperature();
 
+	//report gate status in voltages[0-1]
+	pay.voltages[0] = streetGate.getState();
+	pay.voltages[1] = houseGate.getState();
 	printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, (uint8_t*)&pay, 16));
+}
+
+void reportNow()
+{
+	report(netAddress);
 }
 
 bool NRFreceivedCB(int pipe, uint8_t *data, int len)
@@ -200,7 +215,8 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
 
-  GateLights gate;
+  DrivewayLights lights;
+  DrivewayMotors motors(&lights, &streetGate, &houseGate);
 
   HAL_Delay(1000);
 
@@ -226,6 +242,7 @@ int main(void)
 
   MX_SPI1_Init();
   MX_ADC1_Init();
+  MX_TIM2_Init();
 
   if(HAL_GPIO_ReadPin(NRF_ADDR0_GPIO_Port, NRF_ADDR0_Pin) == GPIO_PIN_RESET)
 	  netAddress[0] |= 0x01;
@@ -239,7 +256,7 @@ int main(void)
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
 
-  gate.set(GateLights::STREET_TO_HOUSE_OPENING);
+  //lights.set(DrivewayLights::STREET_TO_HOUSE_OPENING);
 
 //  report(netAddress);
 
@@ -247,15 +264,22 @@ int main(void)
   while (1)
   {
 	  terminal_run();
-	  gate.run();
+	  lights.run();
+	  motors.run();
 	  InterfaceNRF24::get()->run();
 
       HAL_Delay(100);
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+
   }
 
 }
 
+void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	houseGate.appendSample(!HAL_GPIO_ReadPin(GATE_IN0_Port, GATE_IN0_Pin));
+	streetGate.appendSample(!HAL_GPIO_ReadPin(GATE_IN1_Port, GATE_IN1_Pin));
+}
 
 /** System Clock Configuration
 */
@@ -463,6 +487,19 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(GATE_OUT4_Port, &GPIO_InitStruct);
+
+	/*Configure GATE GPIO pin : GATE_IN0_Pin */
+	GPIO_InitStruct.Pin = GATE_IN0_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(GATE_IN0_Port, &GPIO_InitStruct);
+
+	/*Configure GATE GPIO pin : GATE_IN1_Pin */
+	GPIO_InitStruct.Pin = GATE_IN1_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(GATE_IN1_Port, &GPIO_InitStruct);
+
 }
 
 /* SPI1 init function */
@@ -507,6 +544,55 @@ static void MX_ADC1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
+}
+
+/* TIM2 init function */
+static void MX_TIM2_Init(void)
+{
+	//printf("APB1 @ %dHz\n", (int)HAL_RCC_GetPCLK1Freq());
+	TIM_ClockConfigTypeDef sClockSourceConfig;
+	TIM_MasterConfigTypeDef sMasterConfig;
+	TIM_OC_InitTypeDef sConfigOC;
+
+	htim2.Instance = TIM2;
+	htim2.Init.Prescaler = 7200; //input clock is 5kHz (36 000 000 / 7 200)
+	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim2.Init.Period = 250;   // trigger every 250 cycles, gives 4kHz (25ms) tick
+	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV4;
+	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+	{
+		_Error_Handler(__FILE__, __LINE__);
+	}
+
+	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+	{
+		_Error_Handler(__FILE__, __LINE__);
+	}
+
+	if (HAL_TIM_OC_Init(&htim2) != HAL_OK)
+	{
+		_Error_Handler(__FILE__, __LINE__);
+	}
+
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+	{
+		_Error_Handler(__FILE__, __LINE__);
+	}
+
+	sConfigOC.OCMode = TIM_OCMODE_TIMING;
+	sConfigOC.Pulse = 0;
+	sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+	sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+	if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+	{
+		_Error_Handler(__FILE__, __LINE__);
+	}
+
+	HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_1);
 }
 
 const char *getDayName(int week_day)

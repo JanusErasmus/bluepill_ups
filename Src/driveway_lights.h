@@ -5,10 +5,10 @@
  *      Author: janus
  */
 
-#ifndef SRC_GATE_LIGHTS_H_
-#define SRC_GATE_LIGHTS_H_
+#ifndef SRC_DRIVEWAY_LIGHTS_H_
+#define SRC_DRIVEWAY_LIGHTS_H_
 
-class GateLights {
+class DrivewayLights {
 public:
 	enum eSequence
 	{
@@ -16,9 +16,11 @@ public:
 		OFF,
 		FLASH_ON_OFF,
 		HOUSE_TO_STREET_OPENING,
-		HOUSE_TO_STREET_CLOSEING,
+		HOUSE_TO_STREET_OPEN,
+		HOUSE_TO_STREET_CLOSING,
 		STREET_TO_HOUSE_OPENING,
-		STREET_TO_HOUSE_CLOSEING,
+		STREET_TO_HOUSE_OPEN,
+		STREET_TO_HOUSE_CLOSING,
 		SWITCH_OFF
 	};
 private:
@@ -26,11 +28,11 @@ private:
 	int mFlashFlag;
 	int mTick;
 public:
-	GateLights();
-	virtual ~GateLights();
+	DrivewayLights();
+	virtual ~DrivewayLights();
 
 	void run();
 	void set(eSequence seq);
 };
 
-#endif /* SRC_GATE_LIGHTS_H_ */
+#endif /* SRC_DRIVEWAY_LIGHTS_H_ */

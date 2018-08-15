@@ -114,11 +114,15 @@ const sTermEntry_t rebootEntry =
 
 #include "usb_device.h"
 
+
+extern TIM_HandleTypeDef htim2;
+
 void jumpBoot(uint8_t argc, char **argv)
 {
     printf("Boot mode...\n");
 
     MX_USB_DEVICE_DeInit();
+    HAL_TIM_Base_MspDeInit(&htim2);
 //    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_11 | GPIO_PIN_12);
 //
 //    GPIO_InitTypeDef GPIO_InitStruct;

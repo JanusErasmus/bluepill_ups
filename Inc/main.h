@@ -81,6 +81,10 @@
 #define GATE_OUT3_Pin 	GPIO_PIN_8
 #define GATE_OUT4_Port 	GPIOB
 #define GATE_OUT4_Pin 	GPIO_PIN_9
+#define GATE_IN0_Port 	GPIOB
+#define GATE_IN0_Pin 	GPIO_PIN_12
+#define GATE_IN1_Port 	GPIOB
+#define GATE_IN1_Pin 	GPIO_PIN_13
 
 /* ########################## Assert Selection ############################## */
 /**
