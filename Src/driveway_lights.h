@@ -10,7 +10,7 @@
 
 class DrivewayLights {
 public:
-	enum eSequence
+	enum eLightState
 	{
 		ON,
 		OFF,
@@ -24,15 +24,16 @@ public:
 		SWITCH_OFF
 	};
 private:
-	eSequence mSequence;
+	eLightState mState;
 	int mFlashFlag;
+	bool mFillFlag;
 	int mTick;
 public:
 	DrivewayLights();
 	virtual ~DrivewayLights();
 
 	void run();
-	void set(eSequence seq);
+	void set(eLightState state);
 };
 
 #endif /* SRC_DRIVEWAY_LIGHTS_H_ */

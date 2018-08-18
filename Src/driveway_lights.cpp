@@ -31,9 +31,10 @@ void setPin(uint8_t index, GPIO_PinState state)
 
 DrivewayLights::DrivewayLights()
 {
-	mSequence = OFF;
+	mState = OFF;
 	mFlashFlag = 0;
 	mTick = 0;
+	mFillFlag = false;
 }
 
 DrivewayLights::~DrivewayLights()
@@ -58,14 +59,14 @@ void resetAll()
 
 void DrivewayLights::run()
 {
-	//sample gate light every 300ms
+	//sample gate light every 400ms
 	static int checkGate = 0;
 	int tick = HAL_GetTick();
-	if(tick < (checkGate + 300))
+	if(tick < (checkGate + 400))
 		return;
 	checkGate = tick;
 
-	switch(mSequence)
+	switch(mState)
 	{
 	case OFF:
 		resetAll();
@@ -96,7 +97,10 @@ void DrivewayLights::run()
 		if(mFlashFlag > 4)
 		{
 			mFlashFlag = 0;
-			mSequence = ON;
+			if(mFillFlag)
+				mState = ON;
+
+			mFillFlag = true;
 		}
 		break;
 	case HOUSE_TO_STREET_CLOSING:
@@ -116,8 +120,11 @@ void DrivewayLights::run()
 		mFlashFlag--;
 		if(mFlashFlag < 0)
 		{
-			mFlashFlag = 0;
-			mSequence = ON;
+			mFlashFlag = 4;
+			if(mFillFlag)
+				mState = ON;
+
+			mFillFlag = true;
 		}
 		break;
 	case STREET_TO_HOUSE_CLOSING:
@@ -145,7 +152,7 @@ void DrivewayLights::run()
 		if(mFlashFlag == 103) //switch outer lights off to middle
 		{
 			setPin(2, GPIO_PIN_RESET);
-			mSequence = OFF;
+			mState = OFF;
 		}
 		mFlashFlag++;
 		break;
@@ -153,32 +160,25 @@ void DrivewayLights::run()
 }
 
 
-void DrivewayLights::set(eSequence seq)
+void DrivewayLights::set(eLightState state)
 {
-	//when a gate was open or opening, do not change sequence when another starts opening
-	if((seq == STREET_TO_HOUSE_OPENING) || (seq == HOUSE_TO_STREET_OPENING))
+	//while waiting for switch off delay, simply set closing states if gates are opened
+	if(mState == SWITCH_OFF)
 	{
-		if((mSequence == STREET_TO_HOUSE_OPENING) || (mSequence == HOUSE_TO_STREET_OPENING) || (mSequence == ON) ||
-				(mSequence == STREET_TO_HOUSE_OPEN) || (mSequence == HOUSE_TO_STREET_OPEN))
-		{
-			return;
-		}
+		if(state == STREET_TO_HOUSE_OPENING)
+			state = STREET_TO_HOUSE_CLOSING;
+
+		if(state == HOUSE_TO_STREET_OPENING)
+			state = HOUSE_TO_STREET_CLOSING;
 	}
 
-	//when switching on, start at the correct side
-	if(seq == STREET_TO_HOUSE_OPEN)
-		mFlashFlag = 4;
-	else
+	//when switching on, do not change index
+	if(state != STREET_TO_HOUSE_OPEN)
+	{
 		mFlashFlag = 0;
-
-
-	//keep lights on for 30s after closing
-	if(seq == OFF)
-	{
-		if((mSequence == STREET_TO_HOUSE_CLOSING) || (mSequence == HOUSE_TO_STREET_CLOSING))
-			seq = SWITCH_OFF;
 	}
 
-	mSequence = seq;
 
+	mState = state;
+	mFillFlag = false;
 }
