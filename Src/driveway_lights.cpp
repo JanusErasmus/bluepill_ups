@@ -159,9 +159,18 @@ void DrivewayLights::run()
 	}
 }
 
+extern bool isDay();
 
 void DrivewayLights::set(eLightState state)
 {
+	//only switch lights when it is night
+	if(isDay())
+	{
+		printf("It is day\n");
+		mState = OFF;
+		return;
+	}
+
 	//while waiting for switch off delay, simply set closing states if gates are opened
 	if(mState == SWITCH_OFF)
 	{

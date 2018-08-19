@@ -188,11 +188,36 @@ void reportNow()
 	report(netAddress);
 }
 
+bool isDay()
+{
+	RTC_TimeTypeDef sTime;
+	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+
+	printf("H: %d\n", sTime.Hours);
+
+	if((sTime.Hours > 17) || (5 > sTime.Hours))
+		return false;
+
+	return true;
+}
+
 bool NRFreceivedCB(int pipe, uint8_t *data, int len)
 {
 	printf("RCV PIPE# %d\n", (int)pipe);
 	printf(" PAYLOAD: %d\n", len);
 	diag_dump_buf(data, len);
+
+	nodeData_s down;
+	memcpy(&down, data, len);
+	int hour = (down.timestamp >> 8) & 0xFF;
+	int min = (down.timestamp) & 0xFF;
+	printf("Time %d:%d\n", hour, min);
+
+	RTC_TimeTypeDef sTime;
+	sTime.Hours = hour;
+	sTime.Minutes = min;
+	sTime.Seconds = 0;
+	HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 
 	//Broadcast pipe
 	if(pipe == 1)
@@ -505,7 +530,6 @@ static void MX_GPIO_Init(void)
 /* SPI1 init function */
 static void MX_SPI1_Init(void)
 {
-
   /* SPI1 parameter configuration*/
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
@@ -523,15 +547,11 @@ static void MX_SPI1_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
-
 }
 
 /* ADC1 init function */
 static void MX_ADC1_Init(void)
 {
-
-    /**Common config
-    */
   hadc1.Instance = ADC1;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE	;
   hadc1.Init.ContinuousConvMode = DISABLE;
@@ -543,7 +563,6 @@ static void MX_ADC1_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
-
 }
 
 /* TIM2 init function */
@@ -650,13 +669,6 @@ void rtc_debug(uint8_t argc, char **argv)
 {
 	RTC_TimeTypeDef sTime;
 	RTC_DateTypeDef sDate;
-
-//	time_t now = time(0);
-
-//	struct tm *tm =	localtime(&now);
-
-//	printf("%d %s", (int)now, ctime(&now));
-
 
 	if(argc > 5)
 	{
