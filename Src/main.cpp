@@ -60,9 +60,6 @@
 #include "usb_device.h"
 
 #include "interface_nrf24.h"
-#include "centurion_gate.h"
-#include "driveway_lights.h"
-#include "driveway_motors.h"
 
 uint8_t netAddress[] = {0x00, 0x44, 0x55};
 #define payload_length 16
@@ -72,8 +69,6 @@ RTC_HandleTypeDef hrtc;
 SPI_HandleTypeDef hspi1;
 ADC_HandleTypeDef hadc1;
 TIM_HandleTypeDef htim2;
-CenturionGate streetGate;
-CenturionGate houseGate;
 /* Private variables ---------------------------------------------------------*/
 
 /* Private function prototypes -----------------------------------------------*/
@@ -177,9 +172,6 @@ void report(uint8_t *address)
 	pay.timestamp = HAL_GetTick();
 	pay.temperature = getTemperature();
 
-	//report gate status in voltages[0-1]
-	pay.voltages[0] = streetGate.getState();
-	pay.voltages[1] = houseGate.getState();
 	printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, (uint8_t*)&pay, 16));
 }
 
@@ -211,7 +203,7 @@ bool NRFreceivedCB(int pipe, uint8_t *data, int len)
 	memcpy(&down, data, len);
 	int hour = (down.timestamp >> 8) & 0xFF;
 	int min = (down.timestamp) & 0xFF;
-	printf("Time %d:%d\n", hour, min);
+	printf("Set Time %d:%d\n", hour, min);
 
 	RTC_TimeTypeDef sTime;
 	sTime.Hours = hour;
@@ -240,9 +232,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
 
-  DrivewayLights lights;
-  DrivewayMotors motors(&lights, &streetGate, &houseGate);
-
   HAL_Delay(1000);
 
   MX_USB_DEVICE_Init();
@@ -267,7 +256,7 @@ int main(void)
 
   MX_SPI1_Init();
   MX_ADC1_Init();
-  MX_TIM2_Init();
+  //MX_TIM2_Init();
 
   if(HAL_GPIO_ReadPin(NRF_ADDR0_GPIO_Port, NRF_ADDR0_Pin) == GPIO_PIN_RESET)
 	  netAddress[0] |= 0x01;
@@ -281,16 +270,10 @@ int main(void)
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
 
-  //lights.set(DrivewayLights::STREET_TO_HOUSE_OPENING);
-
-//  report(netAddress);
-
   /* Infinite loop */
   while (1)
   {
 	  terminal_run();
-	  lights.run();
-	  motors.run();
 	  InterfaceNRF24::get()->run();
 
       HAL_Delay(100);
@@ -302,8 +285,6 @@ int main(void)
 
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	houseGate.appendSample(!HAL_GPIO_ReadPin(GATE_IN0_Port, GATE_IN0_Pin));
-	streetGate.appendSample(!HAL_GPIO_ReadPin(GATE_IN1_Port, GATE_IN1_Pin));
 }
 
 /** System Clock Configuration
@@ -483,47 +464,47 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Pull = GPIO_PULLUP;
 	HAL_GPIO_Init(NRF_ADDR1_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GATE GPIO pin : GATE_OUT0_Pin */
-	GPIO_InitStruct.Pin = GATE_OUT0_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GATE_OUT0_Port, &GPIO_InitStruct);
-
-	/*Configure GATE GPIO pin : GATE_OUT1_Pin */
-	GPIO_InitStruct.Pin = GATE_OUT1_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GATE_OUT1_Port, &GPIO_InitStruct);
-
-	/*Configure GATE GPIO pin : GATE_OUT2_Pin */
-	GPIO_InitStruct.Pin = GATE_OUT2_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GATE_OUT2_Port, &GPIO_InitStruct);
-
-	/*Configure GATE GPIO pin : GATE_OUT3_Pin */
-	GPIO_InitStruct.Pin = GATE_OUT3_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GATE_OUT3_Port, &GPIO_InitStruct);
-
-	/*Configure GATE GPIO pin : GATE_OUT4_Pin */
-	GPIO_InitStruct.Pin = GATE_OUT4_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GATE_OUT4_Port, &GPIO_InitStruct);
-
-	/*Configure GATE GPIO pin : GATE_IN0_Pin */
-	GPIO_InitStruct.Pin = GATE_IN0_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(GATE_IN0_Port, &GPIO_InitStruct);
-
-	/*Configure GATE GPIO pin : GATE_IN1_Pin */
-	GPIO_InitStruct.Pin = GATE_IN1_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(GATE_IN1_Port, &GPIO_InitStruct);
+//	/*Configure GATE GPIO pin : GATE_OUT0_Pin */
+//	GPIO_InitStruct.Pin = GATE_OUT0_Pin;
+//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+//	GPIO_InitStruct.Pull = GPIO_NOPULL;
+//	HAL_GPIO_Init(GATE_OUT0_Port, &GPIO_InitStruct);
+//
+//	/*Configure GATE GPIO pin : GATE_OUT1_Pin */
+//	GPIO_InitStruct.Pin = GATE_OUT1_Pin;
+//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+//	GPIO_InitStruct.Pull = GPIO_NOPULL;
+//	HAL_GPIO_Init(GATE_OUT1_Port, &GPIO_InitStruct);
+//
+//	/*Configure GATE GPIO pin : GATE_OUT2_Pin */
+//	GPIO_InitStruct.Pin = GATE_OUT2_Pin;
+//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+//	GPIO_InitStruct.Pull = GPIO_NOPULL;
+//	HAL_GPIO_Init(GATE_OUT2_Port, &GPIO_InitStruct);
+//
+//	/*Configure GATE GPIO pin : GATE_OUT3_Pin */
+//	GPIO_InitStruct.Pin = GATE_OUT3_Pin;
+//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+//	GPIO_InitStruct.Pull = GPIO_NOPULL;
+//	HAL_GPIO_Init(GATE_OUT3_Port, &GPIO_InitStruct);
+//
+//	/*Configure GATE GPIO pin : GATE_OUT4_Pin */
+//	GPIO_InitStruct.Pin = GATE_OUT4_Pin;
+//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+//	GPIO_InitStruct.Pull = GPIO_NOPULL;
+//	HAL_GPIO_Init(GATE_OUT4_Port, &GPIO_InitStruct);
+//
+//	/*Configure GATE GPIO pin : GATE_IN0_Pin */
+//	GPIO_InitStruct.Pin = GATE_IN0_Pin;
+//	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//	GPIO_InitStruct.Pull = GPIO_PULLUP;
+//	HAL_GPIO_Init(GATE_IN0_Port, &GPIO_InitStruct);
+//
+//	/*Configure GATE GPIO pin : GATE_IN1_Pin */
+//	GPIO_InitStruct.Pin = GATE_IN1_Pin;
+//	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//	GPIO_InitStruct.Pull = GPIO_PULLUP;
+//	HAL_GPIO_Init(GATE_IN1_Port, &GPIO_InitStruct);
 
 }
 
