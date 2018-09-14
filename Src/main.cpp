@@ -90,44 +90,11 @@ typedef struct {
 	uint16_t temperature;	//2
 }__attribute__((packed, aligned(4))) nodeData_s;
 
-uint32_t getADCstep()
+void sampleAnalog(int &temperature, int &voltage0, int &voltage1)
 {
-	uint32_t adc = 0;
-	ADC_ChannelConfTypeDef sConfig;
-	sConfig.Channel = ADC_CHANNEL_VREFINT;
-	sConfig.Rank = ADC_REGULAR_RANK_1;
-	sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	{
-		_Error_Handler(__FILE__, __LINE__);
-	}
+	uint32_t adc = 1;
 
-	HAL_ADC_Start(&hadc1);
-	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
-	{
-		adc = HAL_ADC_GetValue(&hadc1);
-		//printf("REF	: %d\n", adc);
-	}
-	HAL_ADC_Stop(&hadc1);
-
-	//this amount of steps measure 1.2V
-	uint32_t step = 1200000000 / adc;
-	printf("step %d\n", (int)step);
-	return step;
-}
-
-uint32_t sampleTemperature()
-{
-	uint32_t adc = 0;
-
-	ADC_ChannelConfTypeDef sConfig;
-  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
-  sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
+	HAL_ADCEx_Calibration_Start(&hadc1);
 
 	HAL_ADC_Start(&hadc1);
 	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
@@ -135,42 +102,57 @@ uint32_t sampleTemperature()
 		adc = HAL_ADC_GetValue(&hadc1);
 		//printf("ADC: %d\n", adc);
 	}
-	HAL_ADC_Stop(&hadc1);
 
+	//this amount of steps measure 1.2V
+	uint32_t step = 1200000000 / adc;
+	//printf("ADC Step %d\n", (int)step);
 
-	return adc;
-}
-
-uint32_t getTemperature()
-{
-	uint32_t sum = 0;
-
-	HAL_ADCEx_Calibration_Start(&hadc1);
-
-	for (int k = 0; k < 8; ++k) {
-		sum += sampleTemperature();
+	HAL_ADC_Start(&hadc1);
+	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+	{
+		adc = HAL_ADC_GetValue(&hadc1);
+		//printf("ADC: %d\n", adc);
 	}
 
-	uint32_t adc = sum >> 3;
-	printf("adc: %d\n" , (int)adc);
-	int voltage = adc * getADCstep();//845666; //x10^9
-	//printf(" *	%d\n", voltage);
+	int voltage = adc * step;
+	//printf(" *	%d\n", (int)voltage);
 	voltage = 1.43e9 - voltage;
 	//printf(" -	%d\n", voltage);
 	voltage /= 4.3e3;
 	//printf(" /	%d\n", voltage);
+	temperature = 25000.0 + voltage;
 
-	uint32_t temp = 25000 + voltage;
-	printf("temp: %d\n", (int)temp);
-	return temp;
+	//measure raw voltage
+	step /= 1000;
+	HAL_ADC_Start(&hadc1);
+	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+	{
+		adc = HAL_ADC_GetValue(&hadc1);
+		//printf("ADC: %d\n", adc);
+	}
+	voltage0 = adc * step;
+
+	HAL_ADC_Start(&hadc1);
+	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+	{
+		adc = HAL_ADC_GetValue(&hadc1);
+		//printf("ADC: %d\n", adc);
+	}
+	voltage1 = adc * step;
+
+	HAL_ADC_Stop(&hadc1);
 }
 
 void report(uint8_t *address)
 {
+	int temperature, voltage0, voltage1;
+	sampleAnalog(temperature, voltage0, voltage1);
 	nodeData_s pay;
 	memset(&pay, 0, 16);
 	pay.timestamp = HAL_GetTick();
-	pay.temperature = getTemperature();
+	pay.temperature = temperature;
+	pay.voltages[0] = voltage0;
+	pay.voltages[1] = voltage1;
 
 	printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, (uint8_t*)&pay, 16));
 }
@@ -328,7 +310,7 @@ void SystemClock_Config(void)
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_USB|RCC_PERIPHCLK_ADC;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV1_5;
-  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV8;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -464,47 +446,17 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Pull = GPIO_PULLUP;
 	HAL_GPIO_Init(NRF_ADDR1_GPIO_Port, &GPIO_InitStruct);
 
-//	/*Configure GATE GPIO pin : GATE_OUT0_Pin */
-//	GPIO_InitStruct.Pin = GATE_OUT0_Pin;
-//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-//	GPIO_InitStruct.Pull = GPIO_NOPULL;
-//	HAL_GPIO_Init(GATE_OUT0_Port, &GPIO_InitStruct);
-//
-//	/*Configure GATE GPIO pin : GATE_OUT1_Pin */
-//	GPIO_InitStruct.Pin = GATE_OUT1_Pin;
-//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-//	GPIO_InitStruct.Pull = GPIO_NOPULL;
-//	HAL_GPIO_Init(GATE_OUT1_Port, &GPIO_InitStruct);
-//
-//	/*Configure GATE GPIO pin : GATE_OUT2_Pin */
-//	GPIO_InitStruct.Pin = GATE_OUT2_Pin;
-//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-//	GPIO_InitStruct.Pull = GPIO_NOPULL;
-//	HAL_GPIO_Init(GATE_OUT2_Port, &GPIO_InitStruct);
-//
-//	/*Configure GATE GPIO pin : GATE_OUT3_Pin */
-//	GPIO_InitStruct.Pin = GATE_OUT3_Pin;
-//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-//	GPIO_InitStruct.Pull = GPIO_NOPULL;
-//	HAL_GPIO_Init(GATE_OUT3_Port, &GPIO_InitStruct);
-//
-//	/*Configure GATE GPIO pin : GATE_OUT4_Pin */
-//	GPIO_InitStruct.Pin = GATE_OUT4_Pin;
-//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-//	GPIO_InitStruct.Pull = GPIO_NOPULL;
-//	HAL_GPIO_Init(GATE_OUT4_Port, &GPIO_InitStruct);
-//
-//	/*Configure GATE GPIO pin : GATE_IN0_Pin */
-//	GPIO_InitStruct.Pin = GATE_IN0_Pin;
-//	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-//	GPIO_InitStruct.Pull = GPIO_PULLUP;
-//	HAL_GPIO_Init(GATE_IN0_Port, &GPIO_InitStruct);
-//
-//	/*Configure GATE GPIO pin : GATE_IN1_Pin */
-//	GPIO_InitStruct.Pin = GATE_IN1_Pin;
-//	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-//	GPIO_InitStruct.Pull = GPIO_PULLUP;
-//	HAL_GPIO_Init(GATE_IN1_Port, &GPIO_InitStruct);
+	/*Configure GPIO pin : ADC12_IN0 */
+	GPIO_InitStruct.Pin = GPIO_PIN_0;
+	GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : ADC12_IN1 */
+	GPIO_InitStruct.Pin = GPIO_PIN_1;
+	GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
@@ -534,16 +486,51 @@ static void MX_SPI1_Init(void)
 static void MX_ADC1_Init(void)
 {
   hadc1.Instance = ADC1;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE	;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE	;
+  hadc1.Init.DiscontinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.NbrOfDiscConversion = 1;
+  hadc1.Init.NbrOfConversion = 4;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
+
+  ADC_ChannelConfTypeDef sConfig;
+  sConfig.Channel = ADC_CHANNEL_VREFINT;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+	  _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+	  _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+	  _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+	  _Error_Handler(__FILE__, __LINE__);
+  }
+  //printf("%08X\n", ADC1->SQR1);
 }
 
 /* TIM2 init function */
@@ -641,8 +628,13 @@ void nrf(uint8_t argc, char **argv)
 
 void adc(uint8_t argc, char **argv)
 {
-	uint32_t temp = getTemperature();
-	printf("temp: %dmC\n", (int)temp);
+	int temperature, voltage0, voltage1;
+	sampleAnalog(temperature, voltage0, voltage1);
+
+
+	printf("temp: %d\n", temperature);
+	printf("voltage0: %d\n", voltage0);
+	printf("voltage1: %d\n", voltage1);
 }
 
 

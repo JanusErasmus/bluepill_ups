@@ -57,34 +57,19 @@
 
 /* Private define ------------------------------------------------------------*/
 
-#define LED_Pin GPIO_PIN_13
 #define LED_GPIO_Port GPIOC
-#define SPI1_CS_Pin GPIO_PIN_4
+#define LED_Pin GPIO_PIN_13
 #define SPI1_CS_GPIO_Port GPIOA
-#define NRF_CE_Pin GPIO_PIN_1
+#define SPI1_CS_Pin GPIO_PIN_4
 #define NRF_CE_GPIO_Port GPIOB
-#define NRF_IRQ_Pin GPIO_PIN_0
+#define NRF_CE_Pin GPIO_PIN_1
 #define NRF_IRQ_GPIO_Port GPIOB
+#define NRF_IRQ_Pin GPIO_PIN_0
 #define NRF_ADDR0_GPIO_Port GPIOA
 #define NRF_ADDR0_Pin GPIO_PIN_2
 #define NRF_ADDR1_GPIO_Port GPIOA
 #define NRF_ADDR1_Pin GPIO_PIN_3
 
-
-#define GATE_OUT0_Port 	GPIOB
-#define GATE_OUT0_Pin 	GPIO_PIN_3
-#define GATE_OUT1_Port 	GPIOB
-#define GATE_OUT1_Pin 	GPIO_PIN_4
-#define GATE_OUT2_Port 	GPIOB
-#define GATE_OUT2_Pin 	GPIO_PIN_5
-#define GATE_OUT3_Port 	GPIOB
-#define GATE_OUT3_Pin 	GPIO_PIN_8
-#define GATE_OUT4_Port 	GPIOB
-#define GATE_OUT4_Pin 	GPIO_PIN_9
-#define GATE_IN0_Port 	GPIOB
-#define GATE_IN0_Pin 	GPIO_PIN_12
-#define GATE_IN1_Port 	GPIOB
-#define GATE_IN1_Pin 	GPIO_PIN_13
 
 /* ########################## Assert Selection ############################## */
 /**
