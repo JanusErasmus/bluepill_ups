@@ -58,10 +58,11 @@
 #include "Utils/terminal.h"
 #include "Utils/utils.h"
 #include "usb_device.h"
+#include "stm32_tm1637.h"
 
 #include "interface_nrf24.h"
 
-uint8_t netAddress[] = {0x00, 0x44, 0x55};
+uint8_t netAddress[] = {0x01, 0x44, 0x55};
 #define payload_length 16
 
 /* Private variables ---------------------------------------------------------*/
@@ -92,29 +93,55 @@ typedef struct {
 
 void sampleAnalog(int &temperature, int &voltage0, int &voltage1)
 {
-	uint32_t adc = 1;
+	uint32_t adc0 = 0;
+	uint32_t adc1 = 0;
+	uint32_t adc2 = 0;
+	uint32_t adc3 = 0;
 
 	HAL_ADCEx_Calibration_Start(&hadc1);
 
-	HAL_ADC_Start(&hadc1);
-	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+	for (int k = 0; k < 16; ++k)
 	{
-		adc = HAL_ADC_GetValue(&hadc1);
-		//printf("ADC: %d\n", adc);
+		HAL_ADC_Start(&hadc1);
+		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+		{
+			adc0 += HAL_ADC_GetValue(&hadc1);
+			//printf("ADC: %d\n", adc);
+		}
+
+
+		HAL_ADC_Start(&hadc1);
+		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+		{
+			adc1 = HAL_ADC_GetValue(&hadc1);
+			//printf("ADC: %d\n", adc);
+		}
+
+		HAL_ADC_Start(&hadc1);
+		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+		{
+			adc2 += HAL_ADC_GetValue(&hadc1);
+			//printf("ADC: %d\n", adc);
+		}
+
+		HAL_ADC_Start(&hadc1);
+		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+		{
+			adc3 += HAL_ADC_GetValue(&hadc1);
+			//printf("ADC: %d\n", adc);
+		}
 	}
+
+	adc0 <<= 4;
+	adc1 <<= 4;
+	adc2 <<= 4;
+	adc3 <<= 4;
 
 	//this amount of steps measure 1.2V
-	uint32_t step = 1200000000 / adc;
+	uint32_t step = 1200000000 / adc0;
 	//printf("ADC Step %d\n", (int)step);
 
-	HAL_ADC_Start(&hadc1);
-	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
-	{
-		adc = HAL_ADC_GetValue(&hadc1);
-		//printf("ADC: %d\n", adc);
-	}
-
-	int voltage = adc * step;
+	int voltage = adc1 * step;
 	//printf(" *	%d\n", (int)voltage);
 	voltage = 1.43e9 - voltage;
 	//printf(" -	%d\n", voltage);
@@ -124,35 +151,34 @@ void sampleAnalog(int &temperature, int &voltage0, int &voltage1)
 
 	//measure raw voltage
 	step /= 1000;
-	HAL_ADC_Start(&hadc1);
-	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
-	{
-		adc = HAL_ADC_GetValue(&hadc1);
-		//printf("ADC: %d\n", adc);
-	}
-	voltage0 = adc * step;
-
-	HAL_ADC_Start(&hadc1);
-	if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
-	{
-		adc = HAL_ADC_GetValue(&hadc1);
-		//printf("ADC: %d\n", adc);
-	}
-	voltage1 = adc * step;
+	voltage0 = adc2 * step;
+	voltage1 = adc3 * step;
 
 	HAL_ADC_Stop(&hadc1);
 }
 
+void sampleUPS(int &temperature, int &voltage, int &current)
+{
+	int v0, v1;
+	sampleAnalog(temperature, v0, v1);
+
+	voltage = (v0 / 1000 + 100);
+	current = (2420000 - v1) / 1000 ;
+
+	printf("current %d\n", v1);
+
+}
+
 void report(uint8_t *address)
 {
-	int temperature, voltage0, voltage1;
-	sampleAnalog(temperature, voltage0, voltage1);
+	int temperature, volt, amp;
+	sampleUPS(temperature, volt, amp);
 	nodeData_s pay;
 	memset(&pay, 0, 16);
 	pay.timestamp = HAL_GetTick();
 	pay.temperature = temperature;
-	pay.voltages[0] = voltage0;
-	pay.voltages[1] = voltage1;
+	pay.voltages[0] = volt;
+	pay.voltages[1] = (32768 + amp);
 
 	printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, (uint8_t*)&pay, 16));
 }
@@ -240,17 +266,28 @@ int main(void)
   MX_ADC1_Init();
   //MX_TIM2_Init();
 
-  if(HAL_GPIO_ReadPin(NRF_ADDR0_GPIO_Port, NRF_ADDR0_Pin) == GPIO_PIN_RESET)
-	  netAddress[0] |= 0x01;
-
-  if(HAL_GPIO_ReadPin(NRF_ADDR1_GPIO_Port, NRF_ADDR1_Pin) == GPIO_PIN_RESET)
-	  netAddress[0] |= 0x02;
+//  //configure node address up to PIPE5
+//  int nodeAddr = 0;
+//  if(HAL_GPIO_ReadPin(NRF_ADDR0_GPIO_Port, NRF_ADDR0_Pin) == GPIO_PIN_RESET)
+//	  {
+//	  printf("ADDR0: L\n");
+//	  nodeAddr |= 0x01;
+//	  }
+//
+//  if(HAL_GPIO_ReadPin(NRF_ADDR1_GPIO_Port, NRF_ADDR1_Pin) == GPIO_PIN_RESET)
+//	  {
+//	  printf("ADDR1: L\n");
+//	  nodeAddr |= 0x02;
+//	  }
 
   InterfaceNRF24::init(&hspi1, netAddress, 3);
   InterfaceNRF24::get()->setRXcb(NRFreceivedCB);
 
   printf("Bluepill @ %dHz\n", (int)HAL_RCC_GetSysClockFreq());
   MX_RTC_Init();
+
+  tm1637Init();
+  tm1637DisplayDecimal(8888, 0);
 
   /* Infinite loop */
   while (1)
@@ -260,6 +297,26 @@ int main(void)
 
       HAL_Delay(100);
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+
+      static int cnt = 0;
+      if(cnt++ == 50)//every 5 seconds
+      {
+    	  cnt = 0;
+    	  static bool dispVoltage = false;
+    	  int temp, a, v;
+    	  sampleUPS(temp, v, a);
+
+    	  if(dispVoltage)
+    	  {
+    		  dispVoltage = false;
+        	  tm1637DisplayDecimal(v / 10, 1);
+    	  }
+    	  else
+    	  {
+    		  dispVoltage = true;
+    		  tm1637DisplayDecimal(a, 1);
+    	  }
+      }
 
   }
 
@@ -434,17 +491,6 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Pull = GPIO_PULLUP;
 	HAL_GPIO_Init(NRF_IRQ_GPIO_Port, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : NRF_ADDR0_Pin */
-	GPIO_InitStruct.Pin = NRF_ADDR0_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(NRF_ADDR0_GPIO_Port, &GPIO_InitStruct);
-
-	/*Configure GPIO pin : NRF_ADDR1_Pin */
-	GPIO_InitStruct.Pin = NRF_ADDR1_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(NRF_ADDR1_GPIO_Port, &GPIO_InitStruct);
 
 	/*Configure GPIO pin : ADC12_IN0 */
 	GPIO_InitStruct.Pin = GPIO_PIN_0;
@@ -628,13 +674,19 @@ void nrf(uint8_t argc, char **argv)
 
 void adc(uint8_t argc, char **argv)
 {
-	int temperature, voltage0, voltage1;
-	sampleAnalog(temperature, voltage0, voltage1);
+//	int temperature, voltage0, voltage1;
+//	sampleAnalog(temperature, voltage0, voltage1);
+//
+//
+//	printf("temp: %d\n", temperature);
+//	printf("voltage0: %d\n", voltage0);
+//	printf("voltage1: %d\n", voltage1);
 
-
+	int temperature, amp, volt;
+	sampleUPS(temperature, volt, amp);
 	printf("temp: %d\n", temperature);
-	printf("voltage0: %d\n", voltage0);
-	printf("voltage1: %d\n", voltage1);
+	printf("volt: %d\n", volt);
+	printf("amp: %d\n", amp);
 }
 
 
