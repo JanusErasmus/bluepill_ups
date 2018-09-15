@@ -162,11 +162,8 @@ void sampleUPS(int &temperature, int &voltage, int &current)
 	int v0, v1;
 	sampleAnalog(temperature, v0, v1);
 
-	voltage = (v0 / 1000 + 100);
-	current = (2420000 - v1) / 1000 ;
-
-	printf("current %d\n", v1);
-
+	voltage = (v0 / 1000 + 160) * 4.3;
+	current = (2365600 - v1) / 100 ;
 }
 
 void report(uint8_t *address)
@@ -314,7 +311,7 @@ int main(void)
     	  else
     	  {
     		  dispVoltage = true;
-    		  tm1637DisplayDecimal(a, 1);
+    		  tm1637DisplayDecimal(a / 10, 1);
     	  }
       }
 
@@ -501,7 +498,7 @@ static void MX_GPIO_Init(void)
 	/*Configure GPIO pin : ADC12_IN1 */
 	GPIO_InitStruct.Pin = GPIO_PIN_1;
 	GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
