@@ -1,2 +1,3 @@
 (sym_lib_table
+  (lib (name bluepill_ups-rescue)(type Legacy)(uri ${KIPRJMOD}/bluepill_ups-rescue.lib)(options "")(descr ""))
 )
