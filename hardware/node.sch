@@ -15,7 +15,7 @@ Comment3 ""
 Comment4 ""
 $EndDescr
 $Comp
-L bluepill_ups-rescue:NRF24L01_Breakout-Bluepill U?
+L bluepill_ups-rescue:NRF24L01_Breakout-Bluepill-bluepill_ups-rescue U?
 U 1 1 5C14BC20
 P 2150 4150
 AR Path="/5C14BC20" Ref="U?"  Part="1" 
@@ -168,7 +168,7 @@ UART1_RX
 Text HLabel 7400 4450 2    50   Output ~ 0
 UART1_TX
 $Comp
-L bluepill_ups-rescue:TM1637_MODULE U3
+L bluepill_ups-rescue:TM1637_MODULE-bluepill_ups-rescue U3
 U 1 1 5C1386FF
 P 9100 3150
 F 0 "U3" H 8700 3000 60  0000 C CNN
@@ -210,7 +210,7 @@ Wire Wire Line
 Wire Wire Line
 	6550 3450 8500 3450
 $Comp
-L bluepill_ups-rescue:BluePill_STM32F103C-Bluepill U?
+L bluepill_ups-rescue:BluePill_STM32F103C-Bluepill-bluepill_ups-rescue U?
 U 1 1 5C14BC04
 P 5650 3750
 AR Path="/5C14BC04" Ref="U?"  Part="1" 

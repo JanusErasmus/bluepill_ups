@@ -91,7 +91,7 @@ typedef struct {
 	uint16_t temperature;	//2
 }__attribute__((packed, aligned(4))) nodeData_s;
 
-void sampleAnalog(int &temperature, int &voltage0, int &voltage1)
+void sampleAnalog(double &temperature, double &voltage0, double &voltage1)
 {
 	uint32_t adc0 = 0;
 	uint32_t adc1 = 0;
@@ -113,7 +113,7 @@ void sampleAnalog(int &temperature, int &voltage0, int &voltage1)
 		HAL_ADC_Start(&hadc1);
 		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
 		{
-			adc1 = HAL_ADC_GetValue(&hadc1);
+			adc1 += HAL_ADC_GetValue(&hadc1);
 			//printf("ADC: %d\n", adc);
 		}
 
@@ -130,53 +130,67 @@ void sampleAnalog(int &temperature, int &voltage0, int &voltage1)
 			adc3 += HAL_ADC_GetValue(&hadc1);
 			//printf("ADC: %d\n", adc);
 		}
+
+		HAL_Delay(100);
 	}
 
-	adc0 <<= 4;
-	adc1 <<= 4;
-	adc2 <<= 4;
-	adc3 <<= 4;
+	adc0 >>= 4;
+	adc1 >>= 4;
+	adc2 >>= 4;
+	adc3 >>= 4;
+//	printf("ADC0 %d\n", (int)adc0);
+//	printf("ADC1 %d\n", (int)adc1);
+//	printf("ADC2 %d\n", (int)adc2);
+//	printf("ADC3 %d\n", (int)adc3);
 
 	//this amount of steps measure 1.2V
-	uint32_t step = 1200000000 / adc0;
-	//printf("ADC Step %d\n", (int)step);
+	double step = 1.2 / adc0;
+	//printf("ADC Step %0.3f\n", step);
 
-	int voltage = adc1 * step;
+	double voltage = ((double)adc1) * step;
 	//printf(" *	%d\n", (int)voltage);
-	voltage = 1.43e9 - voltage;
+	voltage = 1.43 - voltage;
 	//printf(" -	%d\n", voltage);
-	voltage /= 4.3e3;
+	voltage /= 0.0043;
 	//printf(" /	%d\n", voltage);
-	temperature = 25000.0 + voltage;
+	temperature = (25.0 + voltage) - 11;
 
 	//measure raw voltage
-	step /= 1000;
-	voltage0 = adc2 * step;
-	voltage1 = adc3 * step;
+	voltage0 = (((double)adc2 * step) + 0.01);
+	voltage1 = (((double)adc3 * step) + 0.01);
 
 	HAL_ADC_Stop(&hadc1);
 }
 
-void sampleUPS(int &temperature, int &voltage, int &current)
+void sampleUPS(double &temperature, double &voltage, double &current)
 {
-	int v0, v1;
+	double v0, v1;
 	sampleAnalog(temperature, v0, v1);
+//	printf("T : %0.3f\n", temperature);
+//	printf("v0: %0.3f\n", v0);
+//	printf("v1: %0.3f\n", v1);
 
-	voltage = (v0 / 1000 + 160) * 4.3;
-	current = (2365600 - v1) / 100 ;
+
+	voltage = v0 * 4.286;
+	current = ((2.5 - v1) - 0.015) * 10;
+
+//	printf("T: %0.3f\n", temperature);
+//	printf("V: %0.3f\n", voltage);
+//	printf("A: %0.3f\n", current);
 }
 
 void report(uint8_t *address)
 {
-	int temperature, volt, amp;
+	double temperature, volt, amp;
 	sampleUPS(temperature, volt, amp);
 	nodeData_s pay;
 	memset(&pay, 0, 16);
 	pay.timestamp = HAL_GetTick();
-	pay.temperature = temperature;
-	pay.voltages[0] = volt;
-	pay.voltages[1] = (32768 + amp);
+	pay.temperature = temperature * 1000;
+	pay.voltages[0] = volt * 1000;
+	pay.voltages[1] = 32768 + (int)(amp * 1000.0);
 
+	printf("A: %d - %d\n", (int)(amp * 1000.0), (int)pay.voltages[1]);
 	printf("TX result %d\n", InterfaceNRF24::get()->transmit(address, (uint8_t*)&pay, 16));
 }
 
@@ -295,23 +309,23 @@ int main(void)
       HAL_Delay(100);
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
-      static int cnt = 0;
-      if(cnt++ == 50)//every 5 seconds
+      static int cnt = 51;
+      if(cnt++ >= 50)//every 5 seconds
       {
     	  cnt = 0;
-    	  static bool dispVoltage = false;
-    	  int temp, a, v;
+    	  static bool dispVoltage = true;
+    	  double temp, a, v;
     	  sampleUPS(temp, v, a);
 
     	  if(dispVoltage)
     	  {
     		  dispVoltage = false;
-        	  tm1637DisplayDecimal(v / 10, 1);
+        	  tm1637DisplayDecimal(v * 100, 1);
     	  }
     	  else
     	  {
     		  dispVoltage = true;
-    		  tm1637DisplayDecimal(a / 10, 1);
+    		  tm1637DisplayDecimal(a * 100, 1);
     	  }
       }
 
@@ -492,7 +506,7 @@ static void MX_GPIO_Init(void)
 	/*Configure GPIO pin : ADC12_IN0 */
 	GPIO_InitStruct.Pin = GPIO_PIN_0;
 	GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 	/*Configure GPIO pin : ADC12_IN1 */
@@ -671,19 +685,12 @@ void nrf(uint8_t argc, char **argv)
 
 void adc(uint8_t argc, char **argv)
 {
-//	int temperature, voltage0, voltage1;
-//	sampleAnalog(temperature, voltage0, voltage1);
-//
-//
-//	printf("temp: %d\n", temperature);
-//	printf("voltage0: %d\n", voltage0);
-//	printf("voltage1: %d\n", voltage1);
-
-	int temperature, amp, volt;
+	double temperature, amp, volt;
 	sampleUPS(temperature, volt, amp);
-	printf("temp: %d\n", temperature);
-	printf("volt: %d\n", volt);
-	printf("amp: %d\n", amp);
+
+	printf("T: %0.3f\n", temperature);
+	printf("V: %0.3f\n", volt);
+	printf("A: %0.3f\n", amp);
 }
 
 

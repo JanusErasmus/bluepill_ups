@@ -20,11 +20,11 @@ X Pin_2 2 -200 -100 150 R 50 50 1 1 P
 ENDDRAW
 ENDDEF
 #
-# bluepill_ups-rescue_BluePill_STM32F103C-Bluepill
+# bluepill_ups-rescue_BluePill_STM32F103C-Bluepill-bluepill_ups-rescue
 #
-DEF bluepill_ups-rescue_BluePill_STM32F103C-Bluepill U 0 40 Y Y 1 F N
+DEF bluepill_ups-rescue_BluePill_STM32F103C-Bluepill-bluepill_ups-rescue U 0 40 Y Y 1 F N
 F0 "U" -450 -1350 50 H V C CNN
-F1 "bluepill_ups-rescue_BluePill_STM32F103C-Bluepill" 50 850 50 H V C CNN
+F1 "bluepill_ups-rescue_BluePill_STM32F103C-Bluepill-bluepill_ups-rescue" 50 850 50 H V C CNN
 F2 "BluePill_breakouts:BluePill_STM32F103C" 50 -1600 50 H I C CNN
 F3 "www.rogerclark.net" 0 -1500 50 H I C CNN
 DRAW
@@ -75,11 +75,11 @@ X PA4 9 -850 -100 300 R 50 50 1 1 B
 ENDDRAW
 ENDDEF
 #
-# bluepill_ups-rescue_NRF24L01_Breakout-Bluepill
+# bluepill_ups-rescue_NRF24L01_Breakout-Bluepill-bluepill_ups-rescue
 #
-DEF bluepill_ups-rescue_NRF24L01_Breakout-Bluepill U 0 40 Y Y 1 F N
+DEF bluepill_ups-rescue_NRF24L01_Breakout-Bluepill-bluepill_ups-rescue U 0 40 Y Y 1 F N
 F0 "U" -350 500 50 H V L CNN
-F1 "bluepill_ups-rescue_NRF24L01_Breakout-Bluepill" 150 500 50 H V L CNN
+F1 "bluepill_ups-rescue_NRF24L01_Breakout-Bluepill-bluepill_ups-rescue" 150 500 50 H V L CNN
 F2 "RF_Module:nRF24L01_Breakout" 150 600 50 H I L CIN
 F3 "" 0 -100 50 H I C CNN
 $FPLIST
@@ -104,11 +104,11 @@ X IRQ 8 -500 -100 150 R 50 50 1 1 O
 ENDDRAW
 ENDDEF
 #
-# bluepill_ups-rescue_TM1637_MODULE
+# bluepill_ups-rescue_TM1637_MODULE-bluepill_ups-rescue
 #
-DEF bluepill_ups-rescue_TM1637_MODULE U 0 40 Y Y 1 F N
+DEF bluepill_ups-rescue_TM1637_MODULE-bluepill_ups-rescue U 0 40 Y Y 1 F N
 F0 "U" -350 450 60 H V C CNN
-F1 "bluepill_ups-rescue_TM1637_MODULE" 300 150 60 H V C CNN
+F1 "bluepill_ups-rescue_TM1637_MODULE-bluepill_ups-rescue" 300 150 60 H V C CNN
 F2 "" 0 0 60 H V C CNN
 F3 "" 0 0 60 H V C CNN
 DRAW
