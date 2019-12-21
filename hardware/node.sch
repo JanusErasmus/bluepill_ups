@@ -6,7 +6,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 2 2
 Title "RF Node"
-Date "2018-12-14"
+Date "2019-12-21"
 Rev ""
 Comp ""
 Comment1 "Generic layout for a node"
@@ -147,12 +147,9 @@ NoConn ~ 6550 4550
 NoConn ~ 6550 4650
 NoConn ~ 6550 4750
 NoConn ~ 6550 4850
-NoConn ~ 6550 4950
 NoConn ~ 4800 4650
 NoConn ~ 4800 4550
 NoConn ~ 4800 4450
-NoConn ~ 4800 3750
-NoConn ~ 4800 3650
 NoConn ~ 4800 3350
 NoConn ~ 4800 3250
 NoConn ~ 4800 3150
@@ -215,8 +212,8 @@ U 1 1 5C14BC04
 P 5650 3750
 AR Path="/5C14BC04" Ref="U?"  Part="1" 
 AR Path="/5C14BAF9/5C14BC04" Ref="U2"  Part="1" 
-F 0 "U2" H 5675 2278 50  0000 C CNN
-F 1 "BluePill_STM32F103C" H 5675 2187 50  0000 C CNN
+F 0 "U2" H 5150 5400 50  0000 C CNN
+F 1 "BluePill_STM32F103C" H 5500 2300 50  0000 C CNN
 F 2 "BLUEPILL" H 5700 2150 50  0001 C CNN
 F 3 "www.rogerclark.net" H 5650 2250 50  0001 C CNN
 	1    5650 3750
@@ -233,4 +230,50 @@ Wire Wire Line
 	6550 3550 6700 3550
 Wire Wire Line
 	6550 3650 6700 3650
+Text Notes 1400 5600 0    79   ~ 0
+Analog Input Pins
+Text Notes 1650 5750 0    50   ~ 0
+AIN0   PA0
+Text Notes 1650 5850 0    50   ~ 0
+AIN1   PA1
+Text Notes 1650 5950 0    50   ~ 0
+AIN2   PA2
+Text Notes 1650 6050 0    50   ~ 0
+AIN3   PA3
+Text Notes 1650 6150 0    50   ~ 0
+AIN4   PA4
+Text Notes 1650 6250 0    50   ~ 0
+AIN5   PA5
+Text Notes 1650 6350 0    50   ~ 0
+AIN6   PA6
+Text Notes 1650 6450 0    50   ~ 0
+AIN7   PA7
+Text Notes 1650 6550 0    50   ~ 0
+AIN8   PB0
+Text Notes 1650 6650 0    50   ~ 0
+AIN9   PB1
+Text Notes 1650 6750 0    50   ~ 0
+AIN10  PC0
+Text Notes 1650 6850 0    50   ~ 0
+AIN11  PC1
+Text Notes 1650 6950 0    50   ~ 0
+AIN12  PC2
+Text Notes 1650 7050 0    50   ~ 0
+AIN13  PC3
+Text Notes 1650 7150 0    50   ~ 0
+AIN14  PC4
+Text Notes 1650 7250 0    50   ~ 0
+AIN15  PC5
+Text HLabel 4300 3650 0    50   Input ~ 0
+ADC_CH2
+Text HLabel 4300 3750 0    50   Input ~ 0
+ADC_CH3
+Wire Wire Line
+	4300 3650 4800 3650
+Wire Wire Line
+	4300 3750 4800 3750
+Wire Wire Line
+	6550 4950 7350 4950
+Text HLabel 7350 4950 2    50   Input ~ 0
+DIN_0
 $EndSCHEMATC

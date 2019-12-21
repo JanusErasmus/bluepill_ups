@@ -60,6 +60,7 @@
 #include "Utils/utils.h"
 #include "usb_device.h"
 #include "stm32_tm1637.h"
+#include "iwdg.h"
 #include "interface_nrf24.h"
 
 #define STREET_NODE_ADDRESS     0x00
@@ -74,6 +75,7 @@
 
 uint8_t netAddress[] = {0x23, 0x1B, 0x25};
 uint8_t serverAddress[] = {0x12, 0x3B, 0x45};
+static uint32_t last_sample = 0;
 
 /* Private variables ---------------------------------------------------------*/
 RTC_HandleTypeDef hrtc;
@@ -113,65 +115,48 @@ typedef struct {
 	uint8_t crc;			//1  32
 }__attribute__((packed, aligned(4))) nodeData_s;
 
+typedef struct {
+	double voltage;
+	double current;
+} ups_telemetry;
+
 bool reportToServer = false;
 
-void sampleAnalog(double &temperature, double &voltage0, double &voltage1)
+void sampleAnalog(double &temperature, double *voltages)
 {
-	uint32_t adc0 = 0;
-	uint32_t adc1 = 0;
-	uint32_t adc2 = 0;
-	uint32_t adc3 = 0;
+	uint32_t adc[8] = {};
 
 	HAL_ADCEx_Calibration_Start(&hadc1);
 
 	for (int k = 0; k < 16; ++k)
 	{
-		HAL_ADC_Start(&hadc1);
-		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+		for(int k = 0; k < 6; k++)
 		{
-			adc0 += HAL_ADC_GetValue(&hadc1);
-			//printf("ADC: %d\n", adc);
-		}
-
-
-		HAL_ADC_Start(&hadc1);
-		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
-		{
-			adc1 += HAL_ADC_GetValue(&hadc1);
-			//printf("ADC: %d\n", adc);
-		}
-
-		HAL_ADC_Start(&hadc1);
-		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
-		{
-			adc2 += HAL_ADC_GetValue(&hadc1);
-			//printf("ADC: %d\n", adc);
-		}
-
-		HAL_ADC_Start(&hadc1);
-		if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
-		{
-			adc3 += HAL_ADC_GetValue(&hadc1);
-			//printf("ADC: %d\n", adc);
+			HAL_ADC_Start(&hadc1);
+			if(HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+			{
+				adc[k] += HAL_ADC_GetValue(&hadc1);
+				//printf("ADC: %d\n", adc);
+			}
 		}
 
 		HAL_Delay(100);
 	}
 
-	adc0 >>= 4;
-	adc1 >>= 4;
-	adc2 >>= 4;
-	adc3 >>= 4;
-//	printf("ADC0 %d\n", (int)adc0);
-//	printf("ADC1 %d\n", (int)adc1);
-//	printf("ADC2 %d\n", (int)adc2);
-//	printf("ADC3 %d\n", (int)adc3);
+	HAL_ADC_Stop(&hadc1);
+
+
+	for(int k = 0; k < 6; k++)
+	{
+		adc[k] >>= 4;
+		//printf("ADC[%d] %d\n", k, (int)adc[k]);
+	}
 
 	//this amount of steps measure 1.2V
-	double step = 1.2 / adc0;
+	double step = 1.2 / adc[0];
 	//printf("ADC Step %0.3f\n", step);
 
-	double voltage = ((double)adc1) * step;
+	double voltage = ((double)adc[1]) * step;
 	//printf(" *	%d\n", (int)voltage);
 	voltage = 1.43 - voltage;
 	//printf(" -	%d\n", voltage);
@@ -180,42 +165,71 @@ void sampleAnalog(double &temperature, double &voltage0, double &voltage1)
 	temperature = (25.0 + voltage) - 11;
 
 	//measure raw voltage
-	voltage0 = (((double)adc2 * step) + 0.01);
-	voltage1 = (((double)adc3 * step) + 0.01);
+	voltages[0] = (((double)adc[2] * step));
+	voltages[1] = (((double)adc[3] * step));
+	voltages[2] = (((double)adc[4] * step));
+    voltages[3] = (((double)adc[5] * step));
 
-	HAL_ADC_Stop(&hadc1);
 }
 
-void sampleUPS(double &temperature, double &voltage, double &current)
+void sampleUPS(double &temperature, ups_telemetry *ups_12, ups_telemetry *ups_230)
 {
-	double v0, v1;
-	sampleAnalog(temperature, v0, v1);
-//	printf("T : %0.3f\n", temperature);
-//	printf("v0: %0.3f\n", v0);
-//	printf("v1: %0.3f\n", v1);
+	static double last_temp;
+	static ups_telemetry last_12, last_230;
 
+	if(last_sample && (last_sample > HAL_GetTick()))
+	{
+		temperature = last_temp;
+		ups_12->voltage  = last_12.voltage;
+		ups_12->current  = last_12.current;
+		ups_230->voltage = last_230.voltage;
+		ups_230->current = last_230.current;
+		return;
+	}
 
-	voltage = v0 * 4.286;
-	current = ((2.5 - v1) - 0.015) * 10;
+	last_sample = HAL_GetTick() + 30000;
+
+	double v[8];
+	sampleAnalog(temperature, v);
+	//printf("T : %0.3f\n", temperature);
+	//printf("v0: %0.3f\n", v[0]);
+	//printf("v1: %0.3f\n", v[1]);
+	//printf("v2: %0.3f\n", v[2]);
+	//printf("v3: %0.3f\n", v[3]);
+
+	last_temp = temperature;
+	last_12.voltage = ups_12->voltage  = v[0] * 4.3;
+	last_12.current = ups_12->current  = ((2.5 - v[1]) ) * 5;
+	last_230.voltage = ups_230->voltage = v[3] * 4.3;
+	last_230.current = ups_230->current = ((2.5 - v[2]) ) * 10;
 
 //	printf("T: %0.3f\n", temperature);
-//	printf("V: %0.3f\n", voltage);
-//	printf("A: %0.3f\n", current);
+//	printf("12  V: %0.3f\n", ups_12->voltage);
+//	printf("12  A: %0.3f\n", ups_12->current);
+//	printf("230 V: %0.3f\n", ups_230->voltage);
+//	printf("230 A: %0.3f\n", ups_230->current);
 }
 
 void report(uint8_t *address)
 {
-	double temperature, volt, amp;
-	sampleUPS(temperature, volt, amp);
+	double temperature;
+	ups_telemetry ups_12, ups_230;
+	sampleUPS(temperature, &ups_12, &ups_230);
+	int mains = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4);
 	nodeData_s pay;
 	memset(&pay, 0, 32);
 	pay.nodeAddress = NODE_ADDRESS;
 	pay.timestamp = HAL_GetTick();
 	pay.temperature = temperature * 1000;
-	pay.voltages[0] = volt * 1000;
-	pay.voltages[1] = 32768 + (int)(amp * 1000.0);
+	pay.voltages[0] = ups_12.voltage * 1000;
+	pay.voltages[1] = 32768 + (int)(ups_12.current * 1000.0);
+	pay.voltages[2] = ups_230.voltage * 1000;
+	pay.voltages[3] = 32768 + (int)(ups_230.current * 1000.0);
+	pay.inputs = mains;
 
-	printf("A: %d - %d\n", (int)(amp * 1000.0), (int)pay.voltages[1]);
+
+
+	printf("A: %d - %d\n", (int)(ups_12.current * 1000.0), (int)pay.voltages[1]);
 	pay.crc = CRC_8::crc((uint8_t*)&pay, 31);
 
 	//report status in voltages[0-1]
@@ -333,6 +347,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_IWDG_Init();
 
   HAL_Delay(1000);
 
@@ -383,6 +398,8 @@ int main(void)
   tm1637Init();
   tm1637DisplayDecimal(8888, 0);
 
+  static int curr_mains = 1;
+
   /* Infinite loop */
   while (1)
   {
@@ -405,23 +422,42 @@ int main(void)
       {
     	  cnt = 0;
     	  static bool dispVoltage = true;
-    	  double temp, a, v;
-    	  sampleUPS(temp, v, a);
+    	  double temp;
+    	  ups_telemetry ups_12, ups_230;
+    	  sampleUPS(temp, &ups_12, &ups_230);
 
     	  if(dispVoltage)
     	  {
     		  dispVoltage = false;
-        	  tm1637DisplayDecimal(v * 100, 1);
+        	  tm1637DisplayDecimal(ups_230.voltage * 100, 1);
     	  }
     	  else
     	  {
     		  dispVoltage = true;
-    		  tm1637DisplayDecimal(a * 100, 1);
+    		  tm1637DisplayDecimal(ups_230.current * 100, 1);
+    	  }
+
+    	  int mains = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4);
+    	  if(curr_mains != mains)
+    	  {
+    		  curr_mains = mains;
+
+    		  HAL_Delay(1000); //wait 1s for currents to stabilize
+    		  last_sample = 0; //force new samples
+    		  reportNow();
     	  }
       }
 
-  }
+      MX_IWDG_Refresh();
 
+      //reset node every 3.14 hours
+      if(HAL_GetTick() > 11304000) // (3.14 * 3600 * 1000)
+      {
+    		printf("House keeping reboot...\n");
+    	    NVIC_SystemReset();
+      }
+
+  }
 }
 
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
@@ -606,6 +642,24 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+	/*Configure GPIO pin : ADC12_IN2 */
+	GPIO_InitStruct.Pin = GPIO_PIN_2;
+	GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : ADC12_IN3 */
+	GPIO_InitStruct.Pin = GPIO_PIN_3;
+	GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : MAINS_Pin */
+	GPIO_InitStruct.Pin = GPIO_PIN_4;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 }
 
 /* SPI1 init function */
@@ -640,7 +694,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.NbrOfDiscConversion = 1;
-  hadc1.Init.NbrOfConversion = 4;
+  hadc1.Init.NbrOfConversion = 6;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -673,6 +727,22 @@ static void MX_ADC1_Init(void)
 
   sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_4;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+	  _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+	  _Error_Handler(__FILE__, __LINE__);
+  }
+
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_6;
   sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -776,12 +846,18 @@ void nrf(uint8_t argc, char **argv)
 
 void adc(uint8_t argc, char **argv)
 {
-	double temperature, amp, volt;
-	sampleUPS(temperature, volt, amp);
+	double temperature;
+	ups_telemetry ups_12, ups_230;
+	sampleUPS(temperature, &ups_12, &ups_230);
 
+	int mains = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4);
+
+	printf("MAINS: %s\n", mains?"OK":"FAIL");
 	printf("T: %0.3f\n", temperature);
-	printf("V: %0.3f\n", volt);
-	printf("A: %0.3f\n", amp);
+	printf("12  V: %0.3f\n", ups_12.voltage);
+	printf("12  A: %0.3f\n", ups_12.current);
+	printf("230 V: %0.3f\n", ups_230.voltage);
+	printf("230 A: %0.3f\n", ups_230.current);
 }
 
 
